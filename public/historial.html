@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mi asistencia · CanchaControl</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0f1a14" />
+  <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Kaushan+Script&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <!-- La tarjeta 3D es el MISMO componente de HU-011 (estilos en asistencia.css) -->
+  <link rel="stylesheet" href="css/asistencia.css" />
+  <link rel="stylesheet" href="css/historial.css" />
+  <script type="module" src="js/historial.js"></script>
+</head>
+<body class="app-page">
+  <div id="boot-loader" class="boot-loader" role="status" aria-live="polite">
+    <div class="boot-loader__inner">
+      <img src="assets/img/logo.svg" alt="" width="56" height="56" />
+      <span class="spinner spinner--lg" aria-hidden="true"></span>
+      <p class="boot-loader__text">Validando sesión…</p>
+    </div>
+  </div>
+  <script>
+    setTimeout(function () {
+      var b = document.getElementById("boot-loader");
+      if (!b || b.classList.contains("is-done")) return;
+      b.innerHTML = '<div class="boot-loader__inner boot-loader__error" role="alert">' +
+        '<img src="assets/img/logo.svg" alt="" width="56" height="56">' +
+        '<p><strong>No fue posible cargar CanchaControl.</strong><br>Revisa tu conexión a internet e intenta nuevamente.</p>' +
+        '<button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button></div>';
+    }, 20000);
+  </script>
+
+  <div id="app" data-private hidden>
+    <div data-shell-sidebar></div>
+    <div class="app-main">
+      <div data-shell-header></div>
+      <main class="page hp" id="hp">
+        <a href="jugadores.html" class="asis-back" id="back-link" hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+          Volver a Mis jugadores
+        </a>
+        <header class="page-head hp-head">
+          <div>
+            <h1 class="page-head__title" id="hp-title">Mi historial de asistencia</h1>
+            <p class="page-head__subtitle" id="hp-sub">Consulta tus entrenamientos, estadísticas y evolución deportiva.</p>
+          </div>
+          <span class="badge badge--neutral hp-ro">Solo consulta</span>
+        </header>
+
+        <!-- PeriodFilter -->
+        <section class="hp-period" aria-label="Período">
+          <div class="hp-seg" role="group" aria-label="Seleccionar período" id="period"></div>
+          <form class="hp-range" id="range-form" hidden novalidate>
+            <div class="hp-range__f"><label for="r-desde">Desde</label><input class="field-input" type="date" id="r-desde" required /></div>
+            <div class="hp-range__f"><label for="r-hasta">Hasta</label><input class="field-input" type="date" id="r-hasta" required /></div>
+            <button type="submit" class="btn btn-primary hp-range__btn">Aplicar</button>
+            <p class="f-error hp-range__err" id="range-err" role="alert"></p>
+          </form>
+          <p class="hp-period__label" id="period-label" aria-live="polite"></p>
+        </section>
+
+        <div id="hp-state" class="hp-state" hidden></div>
+
+        <div id="hp-body">
+          <!-- Perfil: tarjeta 3D + estadísticas -->
+          <section class="hp-hero">
+            <div class="hp-cardcol">
+              <div class="hp-stage" id="card-slot"><div class="skel hp-skel-card"></div></div>
+              <p class="hp-cardcap" id="card-cap"></p>
+            </div>
+
+            <div class="hp-stats panel-card">
+              <h2 class="hp-h2" id="stats-title">Mis estadísticas de asistencia</h2>
+              <div class="hp-stats__grid">
+                <!-- AttendancePercentage (informativo, no filtra) -->
+                <article class="hp-ring" id="ring" aria-labelledby="ring-label">
+                  <svg viewBox="0 0 120 120" aria-hidden="true">
+                    <circle class="hp-ring__track" cx="60" cy="60" r="50"/>
+                    <circle class="hp-ring__bar" id="ring-bar" cx="60" cy="60" r="50"/>
+                  </svg>
+                  <div class="hp-ring__center">
+                    <strong class="hp-ring__value" id="ring-value"><span class="skel" style="width:70px;height:34px;display:inline-block"></span></strong>
+                    <span class="hp-ring__label" id="ring-label">Asistencia</span>
+                  </div>
+                  <p class="hp-ring__note" id="ring-note"></p>
+                </article>
+
+                <!-- AttendanceStats: tarjetas-filtro del historial -->
+                <div class="hp-kpis" id="hp-kpis" role="group" aria-label="Filtrar historial por estado">
+                  <button type="button" class="hp-kpi hp-kpi--all kpi--filter" data-filter="" aria-pressed="true">
+                    <span class="hp-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><line x1="3.5" y1="10" x2="20.5" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg></span>
+                    <span class="hp-kpi__v" id="k-total">–</span><span class="hp-kpi__l">Sesiones registradas</span>
+                  </button>
+                  <button type="button" class="hp-kpi hp-kpi--ok kpi--filter" data-filter="Asistió" aria-pressed="false">
+                    <span class="hp-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></span>
+                    <span class="hp-kpi__v" id="k-ok">–</span><span class="hp-kpi__l">Asistencias</span>
+                  </button>
+                  <button type="button" class="hp-kpi hp-kpi--falta kpi--filter" data-filter="Falta" aria-pressed="false">
+                    <span class="hp-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></svg></span>
+                    <span class="hp-kpi__v" id="k-falta">–</span><span class="hp-kpi__l">Faltas</span>
+                  </button>
+                  <button type="button" class="hp-kpi hp-kpi--excusa kpi--filter" data-filter="Excusa" aria-pressed="false">
+                    <span class="hp-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h9l3 3v13H6z"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="13" y2="15"/></svg></span>
+                    <span class="hp-kpi__v" id="k-excusa">–</span><span class="hp-kpi__l">Excusas</span>
+                  </button>
+                  <button type="button" class="hp-kpi hp-kpi--atraso kpi--filter" data-filter="Atraso" aria-pressed="false">
+                    <span class="hp-kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><polyline points="12 8 12 12 15 14"/></svg></span>
+                    <span class="hp-kpi__v" id="k-atraso">–</span><span class="hp-kpi__l">Atrasos</span>
+                  </button>
+                </div>
+              </div>
+              <p class="hp-formula">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                Porcentaje = (Asistió + Atraso) ÷ (Asistió + Atraso + Falta). Las excusas no afectan el porcentaje y los atrasos se reportan por separado.
+              </p>
+            </div>
+          </section>
+
+          <!-- AttendanceChart -->
+          <section class="panel-card hp-sec" aria-labelledby="chart-title">
+            <header class="hp-sec__head">
+              <h2 class="hp-h2" id="chart-title">Mi evolución de asistencia</h2>
+              <div class="seg" role="group" aria-label="Agrupar gráfico por">
+                <button type="button" class="seg__btn" data-gran="semana" aria-pressed="false">Semanas</button>
+                <button type="button" class="seg__btn" data-gran="mes" aria-pressed="true">Meses</button>
+              </div>
+            </header>
+            <ul class="hp-legend" aria-label="Leyenda">
+              <li><span class="hp-sw hp-sw--ok"></span>Asistió</li>
+              <li><span class="hp-sw hp-sw--atraso"></span>Atraso</li>
+              <li><span class="hp-sw hp-sw--excusa"></span>Excusa</li>
+              <li><span class="hp-sw hp-sw--falta"></span>Falta</li>
+              <li class="hp-legend__pct"><span class="hp-legend__pctdot">%</span>Porcentaje del período</li>
+            </ul>
+            <div class="hp-chart" id="chart" aria-live="polite"></div>
+          </section>
+
+          <!-- AttendanceTimeline -->
+          <section class="panel-card hp-sec" aria-labelledby="tl-title">
+            <header class="hp-sec__head">
+              <h2 class="hp-h2" id="tl-title">Mis entrenamientos y asistencias</h2>
+              <span class="hp-tl-count" id="tl-count"></span>
+            </header>
+            <div id="timeline" class="hp-tl" aria-live="polite"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="dz-tip hp-tip" id="hp-tip" role="tooltip" hidden></div>
+  <div id="toast-region" class="toast-region"></div>
+</body>
+</html>

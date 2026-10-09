@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jugadores · CanchaControl</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c1611" />
+  <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kaushan+Script&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/jugadores.css" />
+  <script type="module" src="js/jugadores.js"></script>
+</head>
+<body class="app-page">
+  <div id="boot-loader" class="boot-loader" role="status" aria-live="polite">
+    <div class="boot-loader__inner">
+      <img src="assets/img/logo.svg" alt="" width="56" height="56" />
+      <span class="spinner spinner--lg" aria-hidden="true"></span>
+      <p class="boot-loader__text">Validando sesión…</p>
+    </div>
+  </div>
+  <script>
+    setTimeout(function () {
+      var b = document.getElementById("boot-loader");
+      if (!b || b.classList.contains("is-done")) return;
+      b.innerHTML = '<div class="boot-loader__inner boot-loader__error" role="alert">' +
+        '<img src="assets/img/logo.svg" alt="" width="56" height="56">' +
+        '<p><strong>No fue posible cargar CanchaControl.</strong><br>Revisa tu conexión a internet e intenta nuevamente.</p>' +
+        '<button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button></div>';
+    }, 20000);
+  </script>
+
+  <!-- Contenido privado: oculto y sin datos hasta que authGuard autorice (solo Administrador) -->
+  <div id="app" data-private hidden>
+    <div data-shell-sidebar></div>
+    <div class="app-main">
+      <div data-shell-header></div>
+
+      <main class="page">
+
+        <!-- ===================== VISTA: LISTADO ===================== -->
+        <div id="view-list" class="view">
+          <header class="page-head">
+            <div>
+              <h1 class="page-head__title">Jugadores</h1>
+              <p class="page-head__subtitle">Gestiona los expedientes personales y deportivos de los jugadores de CanchaControl.</p>
+            </div>
+            <a class="btn btn-primary" id="new-btn" href="#/nuevo" hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nuevo jugador
+            </a>
+          </header>
+
+          <section class="kpis" id="jug-kpis" aria-label="Filtrar jugadores">
+            <button type="button" class="kpi kpi--violet kpi--filter" data-filter="" aria-pressed="false">
+              <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="7.5" r="3.5"/><circle cx="17" cy="8.5" r="2.8"/><path d="M2 19.5c0-3.6 3.1-6 7-6s7 2.4 7 6v.5H2v-.5Z"/><path d="M15.6 13.7c3.4-.3 6.4 1.6 6.4 4.9v1.4h-4.6v-.5c0-2.3-.7-4.3-1.8-5.8Z"/></svg></span>
+              <span class="kpi__body"><span class="kpi__value" id="kpi-total"><span class="skel skel--num"></span></span><span class="kpi__label">Total jugadores</span></span>
+            </button>
+            <button type="button" class="kpi kpi--green kpi--filter" data-filter="Activo" aria-pressed="false">
+              <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12.5 11 15.5 16.5 9.5"/></svg></span>
+              <span class="kpi__body"><span class="kpi__value" id="kpi-activos"><span class="skel skel--num"></span></span><span class="kpi__label">Activos</span></span>
+            </button>
+            <button type="button" class="kpi kpi--gray kpi--filter" data-filter="Inactivo" aria-pressed="false">
+              <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+              <span class="kpi__body"><span class="kpi__value" id="kpi-inactivos"><span class="skel skel--num"></span></span><span class="kpi__label">Inactivos</span></span>
+            </button>
+            <article class="kpi kpi--amber kpi--info" title="Cuentas con rol Jugador que aún no tienen expediente (informativo)">
+              <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20v-1a6 6 0 0 1 9-5.2"/><path d="M16 14h5M18.5 11.5v5"/></svg></span>
+              <div><p class="kpi__value" id="kpi-pendientes"><span class="skel skel--num"></span></p><p class="kpi__label">Cuentas pendientes de expediente</p></div>
+            </article>
+            <button type="button" class="kpi kpi--blue kpi--filter" data-filter="__sincat" aria-pressed="false">
+              <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 4.5-9 4.5-9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg></span>
+              <span class="kpi__body"><span class="kpi__value" id="kpi-sincat"><span class="skel skel--num"></span></span><span class="kpi__label">Jugadores sin categoría</span></span>
+            </button>
+          </section>
+
+          <section class="panel-card" aria-labelledby="list-title">
+            <h2 class="sr-only" id="list-title">Listado de jugadores</h2>
+            <div class="toolbar" id="toolbar">
+              <div class="toolbar__search">
+                <label class="sr-only" for="search">Buscar jugador por nombre o documento</label>
+                <svg class="toolbar__search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="search" id="search" class="field-input" placeholder="Buscar por nombre, documento..." autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="toolbar__filters">
+                <label class="sr-only" for="filter-cat">Filtrar por categoría</label>
+                <select id="filter-cat" class="field-input field-select"><option value="">Todas las categorías</option></select>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="data-table jug-table" id="jug-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="col-n">#</th>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Categoría</th>
+                    <th scope="col">Documento</th>
+                    <th scope="col">Fecha nac.</th>
+                    <th scope="col">Contacto</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" class="col-actions">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="jug-body">
+                  <tr class="skel-row"><td colspan="8"><span class="skel"></span></td></tr>
+                  <tr class="skel-row"><td colspan="8"><span class="skel"></span></td></tr>
+                  <tr class="skel-row"><td colspan="8"><span class="skel"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="empty" id="empty-state" hidden>
+              <div class="empty__icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-1a5.5 5.5 0 0 1 11 0v1"/><circle cx="18" cy="17" r="3"/></svg></div>
+              <p class="empty__title" id="empty-title"></p>
+              <p class="empty__text" id="empty-text"></p>
+              <button type="button" class="btn btn-primary empty__btn" id="empty-action"></button>
+            </div>
+
+            <nav class="pagination" id="pagination" aria-label="Paginación de jugadores" hidden>
+              <p class="pagination__info" id="page-info" aria-live="polite"></p>
+              <div class="pagination__nav" id="page-nav"></div>
+            </nav>
+          </section>
+        </div>
+
+        <!-- ===================== VISTA: NUEVO / EDITAR (por pasos) ===================== -->
+        <div id="view-form" class="view" hidden>
+          <nav class="crumbs" aria-label="Ruta">
+            <a href="#">Jugadores</a>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+            <span id="form-crumb" aria-current="page">Nuevo jugador</span>
+          </nav>
+          <header class="page-head page-head--tight">
+            <div>
+              <h1 class="page-head__title" id="form-title">Nuevo jugador</h1>
+              <p class="page-head__subtitle" id="form-subtitle">Completa la información del jugador.</p>
+            </div>
+          </header>
+
+          <section class="panel-card wiz-card">
+            <ol class="wizard" id="steps" aria-label="Pasos del expediente">
+              <li class="wizard__item"><button type="button" class="wizard__btn" data-goto="1"><span class="wizard__dot">1</span><span class="wizard__label">Datos personales</span></button></li>
+              <li class="wizard__item"><button type="button" class="wizard__btn" data-goto="2"><span class="wizard__dot">2</span><span class="wizard__label">Contacto y emergencia</span></button></li>
+              <li class="wizard__item"><button type="button" class="wizard__btn" data-goto="3"><span class="wizard__dot">3</span><span class="wizard__label">Información deportiva</span></button></li>
+              <li class="wizard__item"><button type="button" class="wizard__btn" data-goto="4"><span class="wizard__dot">4</span><span class="wizard__label">Confirmación</span></button></li>
+            </ol>
+
+            <form id="jug-form" class="wiz-body" novalidate>
+              <!-- PASO 1 · Datos personales (incluye la cuenta de acceso: relación por UID) -->
+              <section class="step" data-step="1" aria-labelledby="s1-title">
+                <div class="acc-block">
+                  <h2 class="sec-title">Cuenta de acceso <span class="req" aria-hidden="true">*</span></h2>
+                  <div id="account-pick">
+                    <p class="f-help acc-help">Elige la cuenta con rol Jugador creada en Gestión de usuarios.</p>
+                    <div class="toolbar__search acc-search" id="acc-search-wrap" hidden>
+                      <label class="sr-only" for="acc-search">Buscar cuenta por nombre o correo</label>
+                      <svg class="toolbar__search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                      <input type="search" id="acc-search" class="field-input" placeholder="Buscar cuenta..." autocomplete="off" />
+                    </div>
+                    <div class="select-list acc-list" id="acc-list" role="radiogroup" aria-label="Cuentas de jugador disponibles"></div>
+                    <p class="f-error" id="f-account-err"></p>
+                  </div>
+                  <div class="acc-locked" id="account-locked" hidden></div>
+                  <div class="acc-empty" id="account-empty" hidden>
+                    <p class="acc-empty__title">No hay cuentas de jugador disponibles para vincular.</p>
+                    <p class="acc-empty__text">Primero crea una cuenta con rol Jugador desde Gestión de usuarios.</p>
+                    <a class="btn btn-outline" href="usuarios.html">Ir a Gestión de usuarios</a>
+                  </div>
+                </div>
+
+                <div id="personal-fields">
+                  <h2 class="sec-title" id="s1-title">Datos personales</h2>
+                  <p class="f-note" id="prefill-note" hidden>Nombres y apellidos se sugirieron desde la cuenta. Revísalos antes de continuar.</p>
+                  <div class="dp-grid">
+                    <div class="dp-fields">
+                      <div class="f-row">
+                        <div class="f-field">
+                          <label class="f-label" for="f-nombres">Nombres <span aria-hidden="true">*</span></label>
+                          <input class="field-input" id="f-nombres" type="text" maxlength="60" autocomplete="off" aria-describedby="f-nombres-err" />
+                          <p class="f-error" id="f-nombres-err"></p>
+                        </div>
+                        <div class="f-field">
+                          <label class="f-label" for="f-apellidos">Apellidos <span aria-hidden="true">*</span></label>
+                          <input class="field-input" id="f-apellidos" type="text" maxlength="60" autocomplete="off" aria-describedby="f-apellidos-err" />
+                          <p class="f-error" id="f-apellidos-err"></p>
+                        </div>
+                      </div>
+                      <div class="f-row">
+                        <div class="f-field">
+                          <label class="f-label" for="f-tipodoc">Tipo de documento <span aria-hidden="true">*</span></label>
+                          <select class="field-input field-select" id="f-tipodoc" aria-describedby="f-tipodoc-err"></select>
+                          <p class="f-error" id="f-tipodoc-err"></p>
+                        </div>
+                        <div class="f-field">
+                          <label class="f-label" for="f-numdoc">Número de documento <span aria-hidden="true">*</span></label>
+                          <input class="field-input" id="f-numdoc" type="text" maxlength="24" autocomplete="off" spellcheck="false" aria-describedby="f-numdoc-err" />
+                          <p class="f-error" id="f-numdoc-err"></p>
+                        </div>
+                      </div>
+                      <div class="f-row f-row--3">
+                        <div class="f-field">
+                          <label class="f-label" for="f-fecha">Fecha de nacimiento <span aria-hidden="true">*</span></label>
+                          <input class="field-input" id="f-fecha" type="date" aria-describedby="f-fecha-err f-fecha-help" />
+                          <p class="f-help" id="f-fecha-help"></p>
+                          <p class="f-error" id="f-fecha-err"></p>
+                        </div>
+                        <div class="f-field">
+                          <label class="f-label" for="f-genero">Género <span aria-hidden="true">*</span></label>
+                          <select class="field-input field-select" id="f-genero" aria-describedby="f-genero-err"></select>
+                          <p class="f-error" id="f-genero-err"></p>
+                        </div>
+                        <div class="f-field">
+                          <label class="f-label" for="f-ciudadnac">Ciudad de nacimiento</label>
+                          <input class="field-input" id="f-ciudadnac" type="text" maxlength="60" autocomplete="off" />
+                        </div>
+                      </div>
+                    </div>
+                    <div class="photo-box">
+                      <div class="photo-box__img" id="photo-preview" aria-hidden="true">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M9 4.5 7.6 6.5H5a2.5 2.5 0 0 0-2.5 2.5v8.5A2.5 2.5 0 0 0 5 20h14a2.5 2.5 0 0 0 2.5-2.5V9A2.5 2.5 0 0 0 19 6.5h-2.6L15 4.5H9Zm3 4.5a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg>
+                      </div>
+                      <label class="photo-box__btn" for="f-foto">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><polyline points="7 9 12 4 17 9"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+                        <span id="photo-btn-label">Subir foto</span>
+                      </label>
+                      <input type="file" id="f-foto" class="sr-only" accept="image/jpeg,image/png,image/webp" />
+                      <p class="photo-box__hint">JPG, PNG o WebP (máx. 5 MB)</p>
+                      <button type="button" class="photo-box__remove" id="photo-remove" hidden>Quitar foto</button>
+                      <p class="f-error" id="f-foto-err"></p>
+                    </div>
+                  </div>
+                  <div class="f-field">
+                    <label class="f-label" for="f-obs">Observaciones (opcional)</label>
+                    <textarea class="field-input" id="f-obs" maxlength="500" placeholder="Ej. información adicional…"></textarea>
+                  </div>
+                </div>
+              </section>
+
+              <!-- PASO 2 · Contacto y emergencia -->
+              <section class="step" data-step="2" aria-labelledby="s2-title" hidden>
+                <h2 class="sec-title" id="s2-title">Información de contacto</h2>
+                <div class="f-row">
+                  <div class="f-field">
+                    <label class="f-label" for="f-telefono">Teléfono</label>
+                    <input class="field-input" id="f-telefono" type="tel" maxlength="20" autocomplete="off" placeholder="Ej. 300 123 4567" aria-describedby="f-telefono-err" />
+                    <p class="f-error" id="f-telefono-err"></p>
+                  </div>
+                  <div class="f-field">
+                    <label class="f-label" for="f-correo">Correo electrónico de contacto</label>
+                    <input class="field-input" id="f-correo" type="email" maxlength="120" autocomplete="off" aria-describedby="f-correo-err f-correo-help" />
+                    <p class="f-help" id="f-correo-help">Puede ser del acudiente. No cambia el correo con el que inicia sesión.</p>
+                    <p class="f-error" id="f-correo-err"></p>
+                  </div>
+                </div>
+                <div class="f-row">
+                  <div class="f-field">
+                    <label class="f-label" for="f-direccion">Dirección</label>
+                    <input class="field-input" id="f-direccion" type="text" maxlength="150" autocomplete="off" />
+                  </div>
+                  <div class="f-field">
+                    <label class="f-label" for="f-ciudad">Ciudad</label>
+                    <input class="field-input" id="f-ciudad" type="text" maxlength="60" autocomplete="off" />
+                  </div>
+                </div>
+
+                <h2 class="sec-title sec-title--sep">Contacto de emergencia</h2>
+                <div class="f-row f-row--3">
+                  <div class="f-field">
+                    <label class="f-label" for="f-em-nombre">Nombre completo <span aria-hidden="true">*</span></label>
+                    <input class="field-input" id="f-em-nombre" type="text" maxlength="80" autocomplete="off" aria-describedby="f-em-nombre-err" />
+                    <p class="f-error" id="f-em-nombre-err"></p>
+                  </div>
+                  <div class="f-field">
+                    <label class="f-label" for="f-em-parentesco">Parentesco <span aria-hidden="true">*</span></label>
+                    <select class="field-input field-select" id="f-em-parentesco" aria-describedby="f-em-parentesco-err"></select>
+                    <p class="f-error" id="f-em-parentesco-err"></p>
+                  </div>
+                  <div class="f-field">
+                    <label class="f-label" for="f-em-telefono">Teléfono <span aria-hidden="true">*</span></label>
+                    <input class="field-input" id="f-em-telefono" type="tel" maxlength="20" autocomplete="off" aria-describedby="f-em-telefono-err" />
+                    <p class="f-error" id="f-em-telefono-err"></p>
+                  </div>
+                </div>
+              </section>
+
+              <!-- PASO 3 · Información deportiva (la categoría llega con HU-008) -->
+              <section class="step" data-step="3" aria-labelledby="s3-title" hidden>
+                <h2 class="sec-title" id="s3-title">Información deportiva</h2>
+                <div class="f-row">
+                  <div class="f-field">
+                    <label class="f-label" for="f-posicion">Posición de juego</label>
+                    <select class="field-input field-select" id="f-posicion"></select>
+                  </div>
+                  <div class="f-field">
+                    <label class="f-label" for="f-camiseta">Número de camiseta</label>
+                    <input class="field-input" id="f-camiseta" type="number" inputmode="numeric" min="0" max="99" step="1" aria-describedby="f-camiseta-err" />
+                    <p class="f-error" id="f-camiseta-err"></p>
+                  </div>
+                </div>
+                <div class="f-row">
+                  <div class="f-field">
+                    <label class="f-label" for="f-estado">Estado deportivo <span aria-hidden="true">*</span></label>
+                    <select class="field-input field-select" id="f-estado">
+                      <option value="Activo">Activo</option>
+                      <option value="Inactivo">Inactivo</option>
+                    </select>
+                    <p class="f-help">No cambia el acceso de la cuenta (eso se gestiona en Usuarios).</p>
+                  </div>
+                  <div class="f-field">
+                    <label class="f-label" for="f-ingreso">Fecha de ingreso</label>
+                    <input class="field-input" id="f-ingreso" type="date" aria-describedby="f-ingreso-err" />
+                    <p class="f-error" id="f-ingreso-err"></p>
+                  </div>
+                </div>
+                <div class="f-field">
+                  <label class="f-label" for="f-obsdep">Observaciones (opcional)</label>
+                  <textarea class="field-input" id="f-obsdep" maxlength="500" placeholder="Ej. lesiones, condiciones especiales…"></textarea>
+                </div>
+              </section>
+
+              <!-- PASO 4 · Confirmación -->
+              <section class="step" data-step="4" aria-labelledby="s4-title" hidden>
+                <h2 class="sec-title" id="s4-title">Confirma la información</h2>
+                <p class="f-help confirm-help">Revisa los datos antes de guardar. Puedes volver a cualquier paso con “Editar”.</p>
+                <div class="confirm-grid" id="confirm-grid"></div>
+              </section>
+
+              <div class="f-alert" id="form-alert" role="alert" hidden></div>
+            </form>
+
+            <footer class="wiz-foot">
+              <button type="button" class="btn btn-outline" id="back-btn">Cancelar</button>
+              <button type="button" class="btn btn-primary" id="next-btn"><span class="btn-label">Siguiente</span></button>
+            </footer>
+          </section>
+        </div>
+
+        <!-- ===================== VISTA ENTRENADOR: MIS JUGADORES (HU-009) ===================== -->
+        <div id="view-coach" class="view" hidden>
+          <header class="page-head">
+            <div>
+              <h1 class="page-head__title">Mis jugadores</h1>
+              <p class="page-head__subtitle">Consulta los jugadores de las categorías que tienes asignadas y revisa sus perfiles deportivos.</p>
+            </div>
+            <div class="season" id="season-wrap" hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><line x1="3.5" y1="10" x2="20.5" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
+              <label class="sr-only" for="coach-season">Temporada</label>
+              <select id="coach-season" class="season__select"></select>
+            </div>
+          </header>
+
+          <section class="panel-card coach-card">
+            <div class="coach-bar" id="coach-bar">
+              <div class="coach-bar__cat">
+                <label class="f-label" for="coach-cat">Selecciona una categoría</label>
+                <div class="cat-select">
+                  <span class="cat-select__dot" id="coach-cat-dot" aria-hidden="true"></span>
+                  <select id="coach-cat" class="field-input field-select" disabled><option value="">Cargando categorías…</option></select>
+                </div>
+              </div>
+              <div class="coach-bar__search toolbar__search" id="coach-toolbar">
+                <label class="sr-only" for="coach-search">Buscar jugador por nombre</label>
+                <svg class="toolbar__search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="search" id="coach-search" class="field-input" placeholder="Buscar jugador por nombre..." autocomplete="off" spellcheck="false" />
+                <button type="button" class="search-clear" id="coach-search-clear" aria-label="Limpiar búsqueda" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              </div>
+              <div class="count-card" id="coach-kpis" aria-live="polite">
+                <span class="count-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="7.5" r="3.5"/><circle cx="17" cy="8.5" r="2.8"/><path d="M2 19.5c0-3.6 3.1-6 7-6s7 2.4 7 6v.5H2v-.5Z"/><path d="M15.6 13.7c3.4-.3 6.4 1.6 6.4 4.9v1.4h-4.6v-.5c0-2.3-.7-4.3-1.8-5.8Z"/></svg></span>
+                <div><p class="count-card__n" id="ck-total"><span class="skel skel--num"></span></p><p class="count-card__l">Jugadores</p></div>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="data-table coach-table" id="coach-table">
+                <thead><tr>
+                  <th scope="col" class="col-n">#</th><th scope="col">Foto</th><th scope="col">Nombre</th><th scope="col">Edad</th>
+                  <th scope="col">Posición</th><th scope="col">Estado</th><th scope="col" class="col-actions">Acciones</th>
+                </tr></thead>
+                <tbody id="coach-body">
+                  <tr class="skel-row"><td colspan="7"><span class="skel"></span></td></tr>
+                  <tr class="skel-row"><td colspan="7"><span class="skel"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="empty state" id="coach-empty" hidden>
+              <div class="state__icon" id="coach-empty-icon" aria-hidden="true"></div>
+              <p class="empty__title" id="coach-empty-title"></p>
+              <p class="empty__text" id="coach-empty-text"></p>
+              <button type="button" class="btn btn-primary empty__btn" id="coach-empty-action" hidden></button>
+            </div>
+            <nav class="pagination" id="coach-pagination" aria-label="Paginación" hidden>
+              <p class="pagination__info" id="coach-page-info" aria-live="polite"></p>
+              <div class="pagination__nav" id="coach-page-nav"></div>
+            </nav>
+          </section>
+        </div>
+
+        <!-- ===================== VISTA ENTRENADOR: FICHA (solo consulta) ===================== -->
+        <div id="view-ficha" class="view" hidden>
+          <nav class="crumbs" aria-label="Ruta">
+            <a href="#">Mis jugadores</a>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+            <span id="ficha-crumb" aria-current="page"></span>
+          </nav>
+          <section class="panel-card exp-card" id="ficha-card"></section>
+        </div>
+
+        <!-- ===================== VISTA: EXPEDIENTE ===================== -->
+        <div id="view-detail" class="view" hidden>
+          <nav class="crumbs" aria-label="Ruta">
+            <a href="#">Jugadores</a>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+            <span id="detail-crumb" aria-current="page"></span>
+          </nav>
+          <section class="panel-card exp-card" id="exp-card"></section>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- HU-008: asignar / cambiar categoría (panel lateral) -->
+  <div class="drawer" id="cat-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="cat-title">
+      <header class="drawer__head">
+        <div>
+          <h2 class="drawer__title" id="cat-title">Asignar categoría</h2>
+          <p class="drawer__subtitle">Define la categoría deportiva actual del jugador.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+      <form class="drawer__body" id="cat-form" novalidate>
+        <h3 class="drw-sub">Información del jugador</h3>
+        <div class="cat-player" id="cat-player"></div>
+        <h3 class="drw-sub">Nueva asignación</h3>
+        <fieldset class="f-field f-fieldset">
+          <legend class="sr-only">Categoría</legend>
+          <div class="toolbar__search acc-search" id="cat-search-wrap" hidden>
+            <label class="sr-only" for="cat-search">Buscar categoría</label>
+            <svg class="toolbar__search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="cat-search" class="field-input" placeholder="Buscar categoría..." autocomplete="off" />
+          </div>
+          <div class="select-list" id="cat-list" role="radiogroup" aria-label="Categorías activas disponibles"></div>
+          <p class="f-error" id="f-cat-err"></p>
+        </fieldset>
+        <div class="f-alert" id="cat-alert" role="alert" hidden></div>
+      </form>
+      <footer class="drawer__foot">
+        <button type="button" class="btn btn-soft" data-close>Cancelar</button>
+        <button type="submit" form="cat-form" class="btn btn-primary" id="cat-save"><span class="btn-label">Confirmar asignación</span></button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- HU-008: confirmar cambio de categoría -->
+  <div class="modal" id="catconf-modal" aria-hidden="true">
+    <div class="modal__backdrop" data-cancel></div>
+    <div class="modal__dialog" role="alertdialog" aria-modal="true" aria-labelledby="catconf-title" aria-describedby="catconf-text">
+      <div class="modal__icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M3 11V9a2 2 0 0 1 2-2h16"/><path d="M7 21l-4-4 4-4"/><path d="M21 13v2a2 2 0 0 1-2 2H3"/></svg></div>
+      <h2 class="modal__title" id="catconf-title">Cambiar categoría</h2>
+      <p class="modal__text" id="catconf-text"></p>
+      <div class="modal__actions modal__actions--row">
+        <button type="button" class="btn btn-ghost" data-cancel>Cancelar</button>
+        <button type="button" class="btn btn-primary" id="catconf-ok">Confirmar cambio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Validaciones -->
+  <div class="modal" id="valid-modal" aria-hidden="true">
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__dialog modal__view--center" role="alertdialog" aria-modal="true" aria-labelledby="valid-title" aria-describedby="valid-text">
+      <button type="button" class="modal__close" data-close aria-label="Cerrar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div class="modal__icon modal__icon--success modal__icon--danger" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="6" x2="12" y2="13.5"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+      <h2 class="modal__title" id="valid-title">Faltan campos obligatorios</h2>
+      <p class="modal__text" id="valid-text">Por favor completa la siguiente información:</p>
+      <ul class="valid-list" id="valid-list"></ul>
+      <div class="modal__actions"><button type="button" class="btn btn-primary" id="valid-ok">Entendido</button></div>
+    </div>
+  </div>
+
+  <!-- Guardado -->
+  <div class="modal" id="done-modal" aria-hidden="true">
+    <div class="modal__backdrop"></div>
+    <div class="modal__dialog modal__view--center" role="dialog" aria-modal="true" aria-labelledby="done-title" aria-describedby="done-text">
+      <div class="modal__icon modal__icon--success modal__icon--ok" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></div>
+      <h2 class="modal__title" id="done-title">¡Jugador registrado!</h2>
+      <p class="modal__text" id="done-text"></p>
+      <div class="modal__actions modal__actions--row done-actions">
+        <button type="button" class="btn btn-outline" id="done-view">Ver expediente</button>
+        <button type="button" class="btn btn-primary" id="done-again">Registrar otro</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Descartar cambios -->
+  <div class="modal" id="discard-modal" aria-hidden="true">
+    <div class="modal__backdrop" data-cancel></div>
+    <div class="modal__dialog" role="alertdialog" aria-modal="true" aria-labelledby="discard-title" aria-describedby="discard-text">
+      <h2 class="modal__title" id="discard-title">¿Descartar los cambios?</h2>
+      <p class="modal__text" id="discard-text">La información que escribiste no se guardará.</p>
+      <div class="modal__actions modal__actions--row">
+        <button type="button" class="btn btn-ghost" data-cancel>Seguir editando</button>
+        <button type="button" class="btn btn-danger" id="discard-ok">Descartar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-region" class="toast-region"></div>
+</body>
+</html>

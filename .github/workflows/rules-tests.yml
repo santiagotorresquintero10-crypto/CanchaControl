@@ -1,0 +1,27 @@
+# Pruebas de seguridad de Firestore (firestore.rules) en los servidores de GitHub.
+# Corre sola en cada push / pull request y también a mano (Actions → "Pruebas de reglas" → Run workflow).
+# Costo: $0 (minutos gratuitos de GitHub Actions). No usa credenciales: el emulador es local (proyecto demo-).
+name: Pruebas de reglas
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  firestore-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar dependencias de prueba
+        run: npm install --no-audit --no-fund
+      - name: Ejecutar pruebas de firestore.rules
+        run: npm run test:rules

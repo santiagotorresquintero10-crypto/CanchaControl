@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Entrenamientos · CanchaControl</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c1611" />
+  <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kaushan+Script&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/entrenamientos.css" />
+  <script type="module" src="js/entrenamientos.js"></script>
+</head>
+<body class="app-page">
+  <div id="boot-loader" class="boot-loader" role="status" aria-live="polite">
+    <div class="boot-loader__inner">
+      <img src="assets/img/logo.svg" alt="" width="56" height="56" />
+      <span class="spinner spinner--lg" aria-hidden="true"></span>
+      <p class="boot-loader__text">Validando sesión…</p>
+    </div>
+  </div>
+  <script>
+    /* Si Firebase no carga en 20 s (sin internet o CDN caído), avisar. */
+    setTimeout(function () {
+      var b = document.getElementById("boot-loader");
+      if (!b || b.classList.contains("is-done")) return;
+      b.innerHTML = '<div class="boot-loader__inner boot-loader__error" role="alert">' +
+        '<img src="assets/img/logo.svg" alt="" width="56" height="56">' +
+        '<p><strong>No fue posible cargar CanchaControl.</strong><br>Revisa tu conexión a internet e intenta nuevamente.</p>' +
+        '<button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button></div>';
+    }, 20000);
+  </script>
+
+  <!-- Contenido privado: oculto y sin datos hasta que authGuard autorice -->
+  <div id="app" data-private hidden>
+    <div data-shell-sidebar></div>
+    <div class="app-main">
+      <div data-shell-header></div>
+
+      <main class="page">
+        <header class="page-head">
+          <div>
+            <h1 class="page-head__title" id="page-title">Entrenamientos</h1>
+            <p class="page-head__subtitle" id="page-subtitle"></p>
+          </div>
+          <button type="button" class="btn btn-primary" id="new-btn" hidden>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nueva sesión
+          </button>
+        </header>
+
+        <section class="kpis" id="ses-kpis" aria-label="Filtrar sesiones del mes">
+          <button type="button" class="kpi kpi--violet kpi--filter" data-filter="" aria-pressed="false">
+            <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><line x1="3.5" y1="10" x2="20.5" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg></span>
+            <span class="kpi__body"><span class="kpi__value" id="k-total"><span class="skel skel--num"></span></span><span class="kpi__label">Total sesiones del mes</span></span>
+          </button>
+          <button type="button" class="kpi kpi--green kpi--filter" data-filter="Programada" aria-pressed="false">
+            <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+            <span class="kpi__body"><span class="kpi__value" id="k-prog"><span class="skel skel--num"></span></span><span class="kpi__label">Programadas</span></span>
+          </button>
+          <button type="button" class="kpi kpi--blue kpi--filter" data-filter="__proximas" aria-pressed="false">
+            <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 5 20 12 13 19"/><line x1="4" y1="12" x2="20" y2="12"/></svg></span>
+            <span class="kpi__body"><span class="kpi__value" id="k-prox"><span class="skel skel--num"></span></span><span class="kpi__label">Próximas (desde hoy)</span></span>
+          </button>
+        </section>
+
+        <div class="ses-layout">
+          <section class="panel-card cal" id="cal" aria-label="Calendario de entrenamientos"><div class="cal__loading"><span class="skel" style="height:280px"></span></div></section>
+
+          <section class="panel-card ses-list" aria-labelledby="list-title">
+            <div class="ses-list__head">
+              <h2 class="ses-list__title" id="list-title">Sesiones</h2>
+              <button type="button" class="link-btn" id="clear-day" hidden>Ver todo el mes</button>
+            </div>
+            <div class="toolbar ses-toolbar" id="toolbar">
+              <div class="toolbar__search">
+                <label class="sr-only" for="search">Buscar por lugar o categoría</label>
+                <svg class="toolbar__search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="search" id="search" class="field-input" placeholder="Buscar por lugar o categoría..." autocomplete="off" />
+              </div>
+              <label class="sr-only" for="filter-cat">Filtrar por categoría</label>
+              <select id="filter-cat" class="field-input field-select"><option value="">Todas las categorías</option></select>
+            </div>
+            <ul class="ses-items" id="ses-items" aria-live="polite"></ul>
+            <div class="empty" id="ses-empty" hidden>
+              <div class="state__icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><line x1="3.5" y1="10" x2="20.5" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg></div>
+              <p class="empty__title" id="ses-empty-title"></p>
+              <p class="empty__text" id="ses-empty-text"></p>
+              <button type="button" class="btn btn-primary empty__btn" id="ses-empty-action" hidden></button>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- FormDrawer: Nueva sesión -->
+  <div class="drawer" id="ses-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="ses-title">
+      <header class="drawer__head">
+        <div>
+          <h2 class="drawer__title" id="ses-title">Nueva sesión</h2>
+          <p class="drawer__subtitle">Programa un entrenamiento para una de tus categorías.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </header>
+      <form class="drawer__body" id="ses-form" novalidate>
+        <div class="f-field">
+          <label class="f-label" for="f-cat">Categoría <span aria-hidden="true">*</span></label>
+          <select class="field-input field-select" id="f-cat" aria-describedby="f-cat-err"></select>
+          <p class="f-error" id="f-cat-err"></p>
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="f-fecha">Fecha <span aria-hidden="true">*</span></label>
+          <input class="field-input" id="f-fecha" type="date" aria-describedby="f-fecha-err" />
+          <p class="f-error" id="f-fecha-err"></p>
+        </div>
+        <div class="f-row">
+          <div class="f-field">
+            <label class="f-label" for="f-ini">Hora de inicio <span aria-hidden="true">*</span></label>
+            <input class="field-input" id="f-ini" type="time" aria-describedby="f-ini-err" />
+            <p class="f-error" id="f-ini-err"></p>
+          </div>
+          <div class="f-field">
+            <label class="f-label" for="f-fin">Hora de finalización <span aria-hidden="true">*</span></label>
+            <input class="field-input" id="f-fin" type="time" aria-describedby="f-fin-err" />
+            <p class="f-error" id="f-fin-err"></p>
+          </div>
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="f-lugar">Lugar <span aria-hidden="true">*</span></label>
+          <input class="field-input" id="f-lugar" type="text" maxlength="80" placeholder="Ej. Cancha 2 · Polideportivo Sur" autocomplete="off" aria-describedby="f-lugar-err" />
+          <p class="f-error" id="f-lugar-err"></p>
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="f-obs">Observaciones (opcional)</label>
+          <textarea class="field-input" id="f-obs" maxlength="300" placeholder="Ej. Traer petos y balones número 4."></textarea>
+        </div>
+        <div class="info-alert" role="note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>La sesión se guardará con estado <strong>Programada</strong>.</span>
+        </div>
+        <div class="f-alert" id="form-alert" role="alert" hidden></div>
+      </form>
+      <footer class="drawer__foot">
+        <button type="button" class="btn btn-soft" data-close>Cancelar</button>
+        <button type="submit" form="ses-form" class="btn btn-primary" id="save-btn"><span class="btn-label">Programar sesión</span></button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Detalle de sesión (solo lectura) -->
+  <div class="drawer" id="det-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="det-title">
+      <header class="drawer__head">
+        <div>
+          <h2 class="drawer__title" id="det-title">Sesión de entrenamiento</h2>
+          <p class="drawer__subtitle" id="det-sub"></p>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </header>
+      <div class="drawer__body">
+        <dl class="detail-list" id="det-list"></dl>
+        <!-- HU-011: acceso a la asistencia de la sesión (Entrenador registra/corrige · Admin consulta) -->
+        <div class="det-asis" id="det-asis" hidden></div>
+      </div>
+      <footer class="drawer__foot drawer__foot--single"><button type="button" class="btn btn-soft" data-close>Cerrar</button></footer>
+    </aside>
+  </div>
+
+  <div id="toast-region" class="toast-region"></div>
+</body>
+</html>

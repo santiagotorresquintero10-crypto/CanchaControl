@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Gestión de usuarios · CanchaControl</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c1611" />
+  <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kaushan+Script&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/usuarios.css" />
+  <script type="module" src="js/usuarios.js"></script>
+</head>
+<body class="app-page">
+  <div id="boot-loader" class="boot-loader" role="status" aria-live="polite">
+    <div class="boot-loader__inner">
+      <img src="assets/img/logo.svg" alt="" width="56" height="56" />
+      <span class="spinner spinner--lg" aria-hidden="true"></span>
+      <p class="boot-loader__text">Validando sesión…</p>
+    </div>
+  </div>
+  <script>
+    /* Si Firebase no carga en 20 s (sin internet o CDN caído), avisar
+       en lugar de dejar la pantalla de carga para siempre. */
+    setTimeout(function () {
+      var b = document.getElementById("boot-loader");
+      if (!b || b.classList.contains("is-done")) return;
+      b.innerHTML = '<div class="boot-loader__inner boot-loader__error" role="alert">' +
+        '<img src="assets/img/logo.svg" alt="" width="56" height="56">' +
+        '<p><strong>No fue posible cargar CanchaControl.</strong><br>Revisa tu conexión a internet e intenta nuevamente.</p>' +
+        '<button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button></div>';
+    }, 20000);
+  </script>
+
+  <!-- Contenido privado: oculto y sin datos hasta que authGuard autorice (solo Administrador) -->
+  <div id="app" data-private hidden>
+    <div data-shell-sidebar></div>
+    <div class="app-main">
+      <div data-shell-header></div>
+    <main class="page">
+      <header class="page-head">
+        <div>
+          <h1 class="page-head__title">Gestión de usuarios</h1>
+          <p class="page-head__subtitle">Administra las cuentas y permisos de acceso a la plataforma.</p>
+        </div>
+      </header>
+
+      <!-- Indicadores (datos reales de Firestore) -->
+      <section class="kpis" id="user-kpis" aria-label="Filtrar usuarios por rol">
+        <button type="button" class="kpi kpi--blue kpi--filter" data-filter="" aria-pressed="false">
+          <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-1a5.5 5.5 0 0 1 11 0v1"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2A4.5 4.5 0 0 1 21.5 18.5v1"/></svg></span>
+          <span class="kpi__body"><span class="kpi__value" id="kpi-total"><span class="skel skel--num"></span></span><span class="kpi__label">Total usuarios</span></span>
+        </button>
+        <button type="button" class="kpi kpi--green kpi--filter" data-filter="Administrador" aria-pressed="false">
+          <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6L12 3Z"/></svg></span>
+          <span class="kpi__body"><span class="kpi__value" id="kpi-admin"><span class="skel skel--num"></span></span><span class="kpi__label">Administradores</span></span>
+        </button>
+        <button type="button" class="kpi kpi--gray kpi--filter" data-filter="Entrenador" aria-pressed="false">
+          <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></span>
+          <span class="kpi__body"><span class="kpi__value" id="kpi-coach"><span class="skel skel--num"></span></span><span class="kpi__label">Entrenadores</span></span>
+        </button>
+        <button type="button" class="kpi kpi--amber kpi--filter" data-filter="Jugador" aria-pressed="false">
+          <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7 4 3-1.5 4.5h-5L8 10z"/></svg></span>
+          <span class="kpi__body"><span class="kpi__value" id="kpi-player"><span class="skel skel--num"></span></span><span class="kpi__label">Jugadores</span></span>
+        </button>
+      </section>
+
+      <!-- Herramientas -->
+      <section class="panel-card" aria-labelledby="list-title">
+        <h2 class="sr-only" id="list-title">Listado de usuarios</h2>
+        <div class="toolbar">
+          <div class="toolbar__search">
+            <label class="sr-only" for="search">Buscar usuario por nombre o correo</label>
+            <svg class="toolbar__search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="search" class="field-input" placeholder="Buscar usuario..." autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="toolbar__filters">
+            <label class="sr-only" for="filter-estado">Filtrar por estado</label>
+            <select id="filter-estado" class="field-input field-select">
+              <option value="">Todos los estados</option>
+              <option value="Activo">Activo</option>
+              <option value="Inactivo">Inactivo</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-primary toolbar__new" id="new-user-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo usuario
+          </button>
+        </div>
+        <p class="results-count" id="results-count" aria-live="polite"></p>
+
+        <div class="table-wrap">
+          <table class="data-table users-table" id="users-table">
+            <thead>
+              <tr>
+                <th scope="col">Nombre</th>
+                <th scope="col">Correo</th>
+                <th scope="col">Rol</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Último acceso</th>
+                <th scope="col"><span class="sr-only">Acciones</span><span aria-hidden="true">Acciones</span></th>
+              </tr>
+            </thead>
+            <tbody id="users-body">
+              <!-- skeleton mientras carga -->
+              <tr class="skel-row"><td colspan="6"><span class="skel"></span></td></tr>
+              <tr class="skel-row"><td colspan="6"><span class="skel"></span></td></tr>
+              <tr class="skel-row"><td colspan="6"><span class="skel"></span></td></tr>
+              <tr class="skel-row"><td colspan="6"><span class="skel"></span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="empty" id="empty-state" hidden>
+          <div class="empty__icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+          <p class="empty__title" id="empty-title"></p>
+          <p class="empty__text" id="empty-text"></p>
+          <button type="button" class="btn btn-outline empty__btn" id="empty-action"></button>
+        </div>
+      </section>
+    </main>
+    </div>
+  </div>
+
+  <!-- Menú de acciones (uno compartido, se posiciona junto al botón ⋮) -->
+  <div class="row-menu" id="row-menu" role="menu" aria-label="Acciones del usuario" hidden>
+    <button type="button" role="menuitem" class="row-menu__item" data-action="edit">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      Editar
+    </button>
+    <button type="button" role="menuitem" class="row-menu__item" data-action="toggle">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+      <span id="row-menu-toggle-label">Inactivar</span>
+    </button>
+  </div>
+
+  <!-- Drawer: crear / editar -->
+  <div class="drawer" id="user-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <header class="drawer__head">
+        <div>
+          <h2 class="drawer__title" id="drawer-title">Nuevo usuario</h2>
+          <p class="drawer__subtitle" id="drawer-subtitle">Crea la cuenta y asigna su rol y estado.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+
+      <form class="drawer__body" id="user-form" novalidate>
+        <div class="f-field">
+          <label class="f-label" for="f-nombre">Nombre completo <span aria-hidden="true">*</span></label>
+          <input class="field-input" id="f-nombre" name="nombre" type="text" autocomplete="off" maxlength="120" required aria-describedby="f-nombre-err" />
+          <p class="f-error" id="f-nombre-err"></p>
+        </div>
+
+        <div class="f-field">
+          <label class="f-label" for="f-email">Correo electrónico <span aria-hidden="true">*</span></label>
+          <input class="field-input" id="f-email" name="email" type="email" inputmode="email" autocomplete="off" autocapitalize="none" spellcheck="false" required aria-describedby="f-email-err f-email-help" />
+          <p class="f-help" id="f-email-help" hidden>El correo no se puede cambiar desde aquí: debe coincidir siempre con el de Firebase Authentication.</p>
+          <p class="f-error" id="f-email-err"></p>
+        </div>
+
+        <div class="f-group" id="password-group">
+          <div class="f-field">
+            <label class="f-label" for="f-pass">Contraseña <span aria-hidden="true">*</span></label>
+            <input class="field-input" id="f-pass" name="password" type="password" autocomplete="new-password" minlength="8" required aria-describedby="f-pass-err f-pass-help" />
+            <p class="f-help" id="f-pass-help">Mínimo 8 caracteres. Será temporal: la persona puede cambiarla con «¿Olvidaste tu contraseña?».</p>
+            <p class="f-error" id="f-pass-err"></p>
+          </div>
+          <div class="f-field">
+            <label class="f-label" for="f-pass2">Confirmar contraseña <span aria-hidden="true">*</span></label>
+            <input class="field-input" id="f-pass2" name="password2" type="password" autocomplete="new-password" required aria-describedby="f-pass2-err" />
+            <p class="f-error" id="f-pass2-err"></p>
+          </div>
+        </div>
+
+        <div class="f-row">
+          <div class="f-field">
+            <label class="f-label" for="f-rol">Rol <span aria-hidden="true">*</span></label>
+            <select class="field-input field-select" id="f-rol" name="rol" required aria-describedby="f-rol-err">
+              <option value="">Selecciona…</option>
+              <option value="Administrador">Administrador</option>
+              <option value="Entrenador">Entrenador</option>
+              <option value="Jugador">Jugador</option>
+            </select>
+            <p class="f-error" id="f-rol-err"></p>
+          </div>
+          <div class="f-field">
+            <label class="f-label" for="f-estado">Estado <span aria-hidden="true">*</span></label>
+            <select class="field-input field-select" id="f-estado" name="estado" required aria-describedby="f-estado-err">
+              <option value="Activo">Activo</option>
+              <option value="Inactivo">Inactivo</option>
+            </select>
+            <p class="f-error" id="f-estado-err"></p>
+          </div>
+        </div>
+        <p class="f-note" id="self-note" hidden>Estás editando tu propia cuenta: tu rol y tu estado solo puede cambiarlos otro Administrador.</p>
+        <p class="f-note" id="linked-note" hidden>Esta cuenta está vinculada a un expediente de jugador. Debes resolver la vinculación antes de cambiar su rol.</p>
+
+        <div class="f-alert" id="form-alert" role="alert" hidden></div>
+      </form>
+
+      <footer class="drawer__foot">
+        <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+        <button type="submit" form="user-form" class="btn btn-primary" id="save-btn"><span class="btn-label">Crear usuario</span></button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Confirmación activar / inactivar -->
+  <div class="modal" id="confirm-modal" aria-hidden="true">
+    <div class="modal__backdrop" data-cancel></div>
+    <div class="modal__dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <div class="modal__icon" id="confirm-icon" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+      </div>
+      <h2 class="modal__title" id="confirm-title"></h2>
+      <p class="modal__text" id="confirm-text"></p>
+      <div class="modal__actions modal__actions--row">
+        <button type="button" class="btn btn-ghost" data-cancel>Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirm-ok"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-region" class="toast-region"></div>
+</body>
+</html>

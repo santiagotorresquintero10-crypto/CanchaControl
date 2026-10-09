@@ -1,0 +1,67 @@
+/* ==========================================================
+   CanchaControl — Categorías (HU-004 · HU-005 · HU-006): solo lo específico.
+   Todo lo demás viene de app.css (sistema visual oficial).
+   ========================================================== */
+.f-fieldset { border: 0; padding: 0; margin: 0 0 1.1rem; min-width: 0; }
+.f-fieldset legend { padding: 0; }
+.drawer__foot--single { grid-template-columns: 1fr; }
+
+/* Drawer asignar entrenador */
+.assign-summary { display: flex; align-items: center; gap: .8rem; padding: .85rem .95rem; border-radius: 12px; background: var(--cc-surface-2); border: 1px solid var(--cc-line); margin-bottom: .9rem; }
+.assign-summary .row-tile { width: 40px; height: 40px; }
+.assign-summary__label { margin: 0; font-size: .75rem; color: var(--cc-muted); text-transform: uppercase; letter-spacing: .05em; }
+.assign-summary__name { margin: 0; font-weight: 700; color: var(--cc-ink); }
+.assign-summary__meta { margin: 0; font-size: .82rem; color: var(--cc-muted); }
+.assign-current { margin: 0 0 1.1rem; font-size: .88rem; color: var(--cc-ink-2); }
+.assign-current strong { color: var(--cc-ink); }
+.assign-current .badge { margin-left: .35rem; }
+.coach-search { margin-bottom: .6rem; }
+
+.cat-table .col-num { text-align: center; }
+@media (min-width: 769px) {
+  .cat-table .cell-strong, .cat-table td.c-code { white-space: nowrap; }
+}
+
+/* Móvil: cada categoría como tarjeta legible (celdas por clase, sirve para
+   la vista Administrador y la vista Entrenador, que tienen columnas distintas) */
+@media (max-width: 768px) {
+  .cat-table thead { display: none; }
+  .cat-table, .cat-table tbody { display: block; }
+  .cat-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "name    actions"
+      "meta    meta"
+      "coach   coach"
+      "rango   estado";
+    gap: .4rem .75rem;
+    padding: .95rem;
+    border-bottom: 1px solid var(--cc-line);
+  }
+  .cat-table--coach tr { grid-template-areas: "name actions" "meta meta" "rango estado"; }
+  .cat-table td { display: block; padding: 0; border: 0; }
+  .cat-table td.c-name { grid-area: name; }
+  .cat-table td.c-code, .cat-table td.c-tipo, .cat-table td.c-periodo, .cat-table td.c-players { display: none; }
+  .cat-table td.cat-meta { display: block; grid-area: meta; font-size: .84rem; color: var(--cc-muted); }
+  .cat-table td.c-rango { grid-area: rango; font-size: .88rem; align-self: center; }
+  .cat-table td.c-coach { grid-area: coach; font-size: .86rem; }
+  .cat-table td.c-coach::before { content: "Entrenador: "; color: var(--cc-muted); font-style: normal; }
+  .cat-table td.c-coach .cell-person { display: inline-grid; }
+  .cat-table td.c-estado { grid-area: estado; justify-self: end; align-self: center; }
+  .cat-table td.col-actions { grid-area: actions; width: auto; }
+  .cat-table tr.skel-row { display: block; }
+}
+@media (min-width: 769px) {
+  .cat-table td.cat-meta { display: none; }
+}
+
+/* HU-008 — Nómina en el detalle (Administrador) */
+.nomina { margin-top: 1.3rem; padding-top: 1.1rem; border-top: 1px solid var(--cc-line); }
+.nomina__title { margin: 0 0 .7rem; font-size: .9rem; font-weight: 700; color: var(--cc-ink); }
+.nomina__list { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+.nomina__list li { display: flex; justify-content: space-between; gap: .6rem; font-size: .9rem; }
+.nomina__list a { color: var(--cc-green-600); font-weight: 600; text-decoration: none; }
+.nomina__list a:hover { text-decoration: underline; }
+.nomina__doc { color: var(--cc-muted); font-size: .82rem; }
+.nomina__empty { margin: 0; font-size: .88rem; color: var(--cc-muted); }

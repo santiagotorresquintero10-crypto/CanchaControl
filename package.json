@@ -1,0 +1,17 @@
+{
+  "name": "canchacontrol",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "firebase emulators:start --only hosting",
+    "deploy": "vercel --prod",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-canchacontrol \"node --test tests/\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.19.0",
+    "firebase-tools": "^15.32.1",
+    "vercel": "^62.5.0"
+  }
+}

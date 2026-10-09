@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Inicio · CanchaControl</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0f1a14" />
+  <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Kaushan+Script&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/entrenamientos.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <script type="module" src="js/dashboard.js"></script>
+</head>
+<body class="app-page">
+  <div id="boot-loader" class="boot-loader" role="status" aria-live="polite">
+    <div class="boot-loader__inner">
+      <img src="assets/img/logo.svg" alt="" width="56" height="56" />
+      <span class="spinner spinner--lg" aria-hidden="true"></span>
+      <p class="boot-loader__text">Validando sesión…</p>
+    </div>
+  </div>
+  <script>
+    setTimeout(function () {
+      var b = document.getElementById("boot-loader");
+      if (!b || b.classList.contains("is-done")) return;
+      b.innerHTML = '<div class="boot-loader__inner boot-loader__error" role="alert">' +
+        '<img src="assets/img/logo.svg" alt="" width="56" height="56">' +
+        '<p><strong>No fue posible cargar CanchaControl.</strong><br>Revisa tu conexión a internet e intenta nuevamente.</p>' +
+        '<button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button></div>';
+    }, 20000);
+  </script>
+
+  <!-- Contenido privado: oculto y sin datos hasta que authGuard autorice -->
+  <div id="app" data-private hidden>
+    <div data-shell-sidebar></div>
+    <div class="app-main">
+      <div data-shell-header></div>
+      <main class="page dash" id="dash">
+        <!-- Bienvenida (informativa). Animación decorativa original: jugadores tocando el balón (SVG + CSS). -->
+        <section class="dash-hero" aria-labelledby="dash-title">
+          <div class="dash-hero__text">
+            <p class="dash-hero__date" id="dash-date"></p>
+            <h1 class="dash-hero__title" id="dash-title">Inicio</h1>
+            <p class="dash-hero__subtitle" id="dash-subtitle"></p>
+            <p class="dash-hero__who">
+              <span>Hola, <strong id="user-name"></strong></span>
+              <span class="dash-hero__role" id="user-role"></span>
+            </p>
+          </div>
+          <div class="pitch-anim" aria-hidden="true">
+            <svg viewBox="0 0 220 140" focusable="false">
+              <defs>
+                <linearGradient id="pa-grass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#23944f"/><stop offset="1" stop-color="#16733b"/></linearGradient>
+                <pattern id="pa-stripes" width="44" height="140" patternUnits="userSpaceOnUse"><rect width="22" height="140" fill="rgba(255,255,255,.05)"/></pattern>
+              </defs>
+              <rect width="220" height="140" rx="14" fill="url(#pa-grass)"/>
+              <rect width="220" height="140" rx="14" fill="url(#pa-stripes)"/>
+              <g fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.2">
+                <rect x="8" y="8" width="204" height="124" rx="3"/>
+                <line x1="110" y1="8" x2="110" y2="132"/>
+                <circle cx="110" cy="70" r="17"/>
+                <rect x="8" y="42" width="24" height="56"/><rect x="188" y="42" width="24" height="56"/>
+              </g>
+              <circle cx="110" cy="70" r="1.6" fill="rgba(255,255,255,.7)"/>
+              <g class="pa-pl pa-b pa-d1"><ellipse class="pa-sh" cx="1" cy="3.5" rx="6" ry="2.5"/><circle r="6"/></g>
+              <g class="pa-pl pa-b pa-d2"><ellipse class="pa-sh" cx="1" cy="3.5" rx="6" ry="2.5"/><circle r="6"/></g>
+              <g class="pa-pl pa-a pa-p1"><ellipse class="pa-sh" cx="1" cy="3.5" rx="6" ry="2.5"/><circle r="6"/><text y="2.4">7</text></g>
+              <g class="pa-pl pa-a pa-p2"><ellipse class="pa-sh" cx="1" cy="3.5" rx="6" ry="2.5"/><circle r="6"/><text y="2.4">10</text></g>
+              <g class="pa-pl pa-a pa-p3"><ellipse class="pa-sh" cx="1" cy="3.5" rx="6" ry="2.5"/><circle r="6"/><text y="2.4">9</text></g>
+              <g class="pa-ball"><ellipse cx=".8" cy="2" rx="3" ry="1.2" fill="rgba(0,0,0,.25)"/><circle r="3" fill="#fff" stroke="#111827" stroke-width=".8"/><circle r="1" fill="#111827"/></g>
+            </svg>
+          </div>
+        </section>
+
+        <!-- Indicadores INFORMATIVOS (no son filtros) -->
+        <section class="kpis dash-kpis" id="dash-kpis" aria-label="Indicadores generales"></section>
+
+        <div class="dash-grid" id="dash-grid"></div>
+      </main>
+    </div>
+  </div>
+
+  <div class="dz-tip" id="dz-tip" role="tooltip" hidden></div>
+  <div id="toast-region" class="toast-region"></div>
+</body>
+</html>

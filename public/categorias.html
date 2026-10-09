@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Categorías deportivas · CanchaControl</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c1611" />
+  <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kaushan+Script&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/categorias.css" />
+  <script type="module" src="js/categorias.js"></script>
+</head>
+<body class="app-page">
+  <div id="boot-loader" class="boot-loader" role="status" aria-live="polite">
+    <div class="boot-loader__inner">
+      <img src="assets/img/logo.svg" alt="" width="56" height="56" />
+      <span class="spinner spinner--lg" aria-hidden="true"></span>
+      <p class="boot-loader__text">Validando sesión…</p>
+    </div>
+  </div>
+  <script>
+    /* Si Firebase no carga en 20 s (sin internet o CDN caído), avisar. */
+    setTimeout(function () {
+      var b = document.getElementById("boot-loader");
+      if (!b || b.classList.contains("is-done")) return;
+      b.innerHTML = '<div class="boot-loader__inner boot-loader__error" role="alert">' +
+        '<img src="assets/img/logo.svg" alt="" width="56" height="56">' +
+        '<p><strong>No fue posible cargar CanchaControl.</strong><br>Revisa tu conexión a internet e intenta nuevamente.</p>' +
+        '<button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button></div>';
+    }, 20000);
+  </script>
+
+  <!-- Contenido privado: oculto y sin datos hasta que authGuard autorice -->
+  <div id="app" data-private hidden>
+    <div data-shell-sidebar></div>
+    <div class="app-main">
+      <div data-shell-header></div>
+
+      <main class="page">
+        <header class="page-head">
+          <div>
+            <h1 class="page-head__title" id="page-title"><span class="skel" style="width:260px;height:1.6rem"></span></h1>
+            <p class="page-head__subtitle" id="page-subtitle"></p>
+          </div>
+          <button type="button" class="btn btn-primary" id="new-cat-btn" hidden>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nueva categoría
+          </button>
+        </header>
+
+        <!-- Indicadores (calculados desde Firestore) -->
+        <section class="kpis" id="cat-kpis" aria-label="Filtrar categorías">
+          <button type="button" class="kpi kpi--violet kpi--filter" data-filter="" aria-pressed="false" id="kpi-card-mis">
+            <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 4.5-9 4.5-9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg></span>
+            <span class="kpi__body"><span class="kpi__value" id="kpi-mis"><span class="skel skel--num"></span></span><span class="kpi__label" id="kpi-mis-label">Total categorías</span></span>
+          </button>
+          <button type="button" class="kpi kpi--green kpi--filter" data-filter="Activa" aria-pressed="false">
+            <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="7.5" r="3.5"/><circle cx="17" cy="8.5" r="2.8"/><path d="M2 19.5c0-3.6 3.1-6 7-6s7 2.4 7 6v.5H2v-.5Z"/><path d="M15.6 13.7c3.4-.3 6.4 1.6 6.4 4.9v1.4h-4.6v-.5c0-2.3-.7-4.3-1.8-5.8Z"/></svg></span>
+            <span class="kpi__body"><span class="kpi__value" id="kpi-activas"><span class="skel skel--num"></span></span><span class="kpi__label">Categorías activas</span></span>
+          </button>
+          <button type="button" class="kpi kpi--gray kpi--filter" data-filter="Inactiva" aria-pressed="false">
+            <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-1a5.5 5.5 0 0 1 11 0v1"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2A4.5 4.5 0 0 1 21.5 18.5v1"/></svg></span>
+            <span class="kpi__body"><span class="kpi__value" id="kpi-inactivas"><span class="skel skel--num"></span></span><span class="kpi__label">Categorías inactivas</span></span>
+          </button>
+          <button type="button" class="kpi kpi--blue kpi--filter" data-filter="__actual" aria-pressed="false">
+            <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><line x1="3.5" y1="10" x2="20.5" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg></span>
+            <span class="kpi__body"><span class="kpi__value" id="kpi-periodo"><span class="skel skel--num"></span></span><span class="kpi__label">Período lectivo actual <span class="kpi__sub" id="kpi-periodo-label"></span></span></span>
+          </button>
+          <button type="button" class="kpi kpi--amber kpi--filter" data-filter="__sin" aria-pressed="false" id="kpi-card-sin" hidden>
+            <span class="kpi__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20v-1a6 6 0 0 1 10-4.5"/><line x1="16" y1="15" x2="21" y2="20"/><line x1="21" y1="15" x2="16" y2="20"/></svg></span>
+            <span class="kpi__body"><span class="kpi__value" id="kpi-sin"><span class="skel skel--num"></span></span><span class="kpi__label">Categorías sin entrenador</span></span>
+          </button>
+        </section>
+
+        <section class="panel-card" aria-labelledby="list-title">
+          <h2 class="sr-only" id="list-title">Listado de categorías</h2>
+          <div class="toolbar" id="cat-toolbar">
+            <div class="toolbar__search">
+              <label class="sr-only" for="search">Buscar categoría por nombre, código o período</label>
+              <svg class="toolbar__search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="search" class="field-input" placeholder="Buscar categoría, código o período..." autocomplete="off" spellcheck="false" />
+            </div>
+            <div class="toolbar__filters">
+              <label class="sr-only" for="filter-periodo">Filtrar por período lectivo</label>
+              <select id="filter-periodo" class="field-input field-select"><option value="">Todos los períodos</option></select>
+              <label class="sr-only" for="filter-coach" id="filter-coach-label">Filtrar por entrenador</label>
+              <select id="filter-coach" class="field-input field-select" hidden><option value="">Todos los entrenadores</option><option value="__none">Sin asignar</option></select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table cat-table" id="cat-table">
+              <thead><tr id="cat-head-row"></tr></thead>
+              <tbody id="cat-body">
+                <tr class="skel-row"><td colspan="9"><span class="skel"></span></td></tr>
+                <tr class="skel-row"><td colspan="9"><span class="skel"></span></td></tr>
+                <tr class="skel-row"><td colspan="9"><span class="skel"></span></td></tr>
+                <tr class="skel-row"><td colspan="9"><span class="skel"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="empty" id="empty-state" hidden>
+            <div class="empty__icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 4.5-9 4.5-9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg></div>
+            <p class="empty__title" id="empty-title"></p>
+            <p class="empty__text" id="empty-text"></p>
+            <button type="button" class="btn btn-primary empty__btn" id="empty-action"></button>
+          </div>
+
+          <nav class="pagination" id="pagination" aria-label="Paginación de categorías" hidden>
+            <p class="pagination__info" id="page-info" aria-live="polite"></p>
+            <div class="pagination__nav" id="page-nav"></div>
+          </nav>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Drawer: nueva categoría / detalle -->
+  <div class="drawer" id="cat-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <header class="drawer__head">
+        <div>
+          <h2 class="drawer__title" id="drawer-title">Nueva categoría</h2>
+          <p class="drawer__subtitle" id="drawer-subtitle">Completa la información para crear una nueva categoría.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+
+      <!-- Formulario de creación -->
+      <form class="drawer__body" id="cat-form" novalidate>
+        <div class="f-field">
+          <label class="f-label" for="f-nombre">Nombre de la categoría <span aria-hidden="true">*</span></label>
+          <input class="field-input" id="f-nombre" type="text" maxlength="60" autocomplete="off" placeholder="Ej. Benjamín" required aria-describedby="f-nombre-err" />
+          <p class="f-error" id="f-nombre-err"></p>
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="f-codigo">Código de grupo <span aria-hidden="true">*</span></label>
+          <input class="field-input" id="f-codigo" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ej. BJ-01" required aria-describedby="f-codigo-err" />
+          <p class="f-error" id="f-codigo-err"></p>
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="f-periodo">Período lectivo <span aria-hidden="true">*</span></label>
+          <select class="field-input field-select" id="f-periodo" required aria-describedby="f-periodo-err"></select>
+          <p class="f-error" id="f-periodo-err"></p>
+        </div>
+
+        <fieldset class="f-field f-fieldset" id="field-tipo">
+          <legend class="f-label">Tipo de configuración <span aria-hidden="true">*</span></legend>
+          <div class="radio-cards">
+            <label class="radio-card">
+              <input type="radio" name="tipo" value="rangoEdad" checked />
+              <span class="radio-card__title">Rango de edad</span>
+              <span class="radio-card__desc">Define una edad mínima y máxima</span>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="tipo" value="anioNacimiento" />
+              <span class="radio-card__title">Año de nacimiento</span>
+              <span class="radio-card__desc">Define un año o rango de años</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="f-row" id="group-edad">
+          <div class="f-field">
+            <label class="f-label" for="f-edad-min">Edad mínima <span aria-hidden="true">*</span></label>
+            <input class="field-input" id="f-edad-min" type="number" inputmode="numeric" min="3" max="80" step="1" placeholder="Ej. 7 años" aria-describedby="f-edad-min-err" />
+            <p class="f-error" id="f-edad-min-err"></p>
+          </div>
+          <div class="f-field">
+            <label class="f-label" for="f-edad-max">Edad máxima <span aria-hidden="true">*</span></label>
+            <input class="field-input" id="f-edad-max" type="number" inputmode="numeric" min="3" max="80" step="1" placeholder="Ej. 8 años" aria-describedby="f-edad-max-err" />
+            <p class="f-error" id="f-edad-max-err"></p>
+          </div>
+        </div>
+
+        <div class="f-row" id="group-anio" hidden>
+          <div class="f-field">
+            <label class="f-label" for="f-anio-ini">Año inicial <span aria-hidden="true">*</span></label>
+            <input class="field-input" id="f-anio-ini" type="number" inputmode="numeric" step="1" placeholder="Ej. 2015" aria-describedby="f-anio-ini-err" />
+            <p class="f-error" id="f-anio-ini-err"></p>
+          </div>
+          <div class="f-field">
+            <label class="f-label" for="f-anio-fin">Año final <span aria-hidden="true">*</span></label>
+            <input class="field-input" id="f-anio-fin" type="number" inputmode="numeric" step="1" placeholder="Ej. 2016" aria-describedby="f-anio-fin-err f-anio-help" />
+            <p class="f-help" id="f-anio-help">Para un solo año, escribe el mismo año en ambos campos.</p>
+            <p class="f-error" id="f-anio-fin-err"></p>
+          </div>
+        </div>
+
+        <div class="info-alert" role="note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>La categoría se creará con estado <strong>Activa</strong> por defecto.</span>
+        </div>
+
+        <div class="f-field">
+          <label class="f-label" for="f-desc">Descripción (opcional)</label>
+          <textarea class="field-input" id="f-desc" maxlength="200" placeholder="Ej. Categoría de formación para jugadores de 7 a 8 años." aria-describedby="f-desc-count"></textarea>
+          <p class="f-counter" id="f-desc-count" aria-live="polite">0/200</p>
+        </div>
+
+        <div class="f-alert" id="form-alert" role="alert" hidden></div>
+      </form>
+
+      <!-- Detalle (solo lectura) -->
+      <div class="drawer__body" id="cat-detail" hidden>
+        <dl class="detail-list" id="detail-list"></dl>
+        <div class="nomina" id="detail-nomina" hidden></div>
+      </div>
+
+      <footer class="drawer__foot" id="form-foot">
+        <button type="button" class="btn btn-soft" data-close>Cancelar</button>
+        <button type="submit" form="cat-form" class="btn btn-primary" id="save-btn"><span class="btn-label">Guardar categoría</span></button>
+      </footer>
+      <footer class="drawer__foot drawer__foot--single" id="detail-foot" hidden>
+        <button type="button" class="btn btn-soft" data-close>Cerrar</button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Drawer: asignar / cambiar entrenador principal (HU-005) -->
+  <div class="drawer" id="assign-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="assign-title">
+      <header class="drawer__head">
+        <div>
+          <h2 class="drawer__title" id="assign-title">Asignar entrenador</h2>
+          <p class="drawer__subtitle">Define el entrenador principal responsable de la categoría.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+      <form class="drawer__body" id="assign-form" novalidate>
+        <div class="assign-summary">
+          <span class="row-tile tile-0" id="assign-tile" aria-hidden="true"></span>
+          <div>
+            <p class="assign-summary__label">Categoría</p>
+            <p class="assign-summary__name" id="assign-cat"></p>
+            <p class="assign-summary__meta" id="assign-meta"></p>
+          </div>
+        </div>
+        <div class="assign-current" id="assign-current"></div>
+
+        <fieldset class="f-field f-fieldset" id="field-coach">
+          <legend class="f-label">Entrenador principal <span aria-hidden="true">*</span></legend>
+          <div class="toolbar__search coach-search" id="coach-search-wrap" hidden>
+            <label class="sr-only" for="coach-search">Buscar entrenador por nombre o correo</label>
+            <svg class="toolbar__search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="coach-search" class="field-input" placeholder="Buscar entrenador..." autocomplete="off" />
+          </div>
+          <div class="coach-list" id="coach-list" role="radiogroup" aria-label="Entrenadores activos disponibles"></div>
+          <p class="f-error" id="f-coach-err"></p>
+        </fieldset>
+        <div class="f-alert" id="assign-alert" role="alert" hidden></div>
+      </form>
+      <footer class="drawer__foot">
+        <button type="button" class="btn btn-soft" data-close>Cancelar</button>
+        <button type="submit" form="assign-form" class="btn btn-primary" id="assign-save"><span class="btn-label">Guardar asignación</span></button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Confirmación de reemplazo -->
+  <div class="modal" id="confirm-modal" aria-hidden="true">
+    <div class="modal__backdrop" data-cancel></div>
+    <div class="modal__dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <div class="modal__icon" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M3 11V9a2 2 0 0 1 2-2h16"/><path d="M7 21l-4-4 4-4"/><path d="M21 13v2a2 2 0 0 1-2 2H3"/></svg>
+      </div>
+      <h2 class="modal__title" id="confirm-title">Cambiar entrenador principal</h2>
+      <p class="modal__text" id="confirm-text"></p>
+      <div class="modal__actions modal__actions--row">
+        <button type="button" class="btn btn-ghost" data-cancel>Cancelar</button>
+        <button type="button" class="btn btn-primary" id="confirm-ok">Confirmar cambio</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-region" class="toast-region"></div>
+</body>
+</html>

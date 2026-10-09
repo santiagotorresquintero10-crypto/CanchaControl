@@ -1,0 +1,70 @@
+/* ==========================================================
+   CanchaControl — Entrenamientos (HU-010) + TrainingCalendar
+   ========================================================== */
+.ses-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); gap: 1.2rem; align-items: start; }
+.drawer__foot--single { grid-template-columns: 1fr; }
+textarea.field-input { min-height: 84px; resize: vertical; padding-top: .7rem; }
+.link-btn { border: 0; background: none; color: var(--cc-primary); font-weight: 600; font-size: .86rem; cursor: pointer; padding: .3rem .5rem; border-radius: 8px; }
+.link-btn:hover { background: var(--cc-primary-soft); }
+.link-btn:focus-visible { outline: none; box-shadow: var(--cc-ring); }
+.state__icon { width: 60px; height: 60px; margin: 0 auto 1rem; border-radius: 50%; display: grid; place-items: center; background: var(--cc-surface-2); color: #7b8592; }
+.empty .empty__btn { width: auto; }
+
+/* Calendario */
+.cal { padding: 1.1rem 1.2rem 1.2rem; }
+.cal__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .9rem; }
+.cal__title { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--cc-ink); }
+.cal__nav { display: flex; gap: .35rem; }
+.cal__navbtn { min-width: 38px; height: 38px; padding: 0 .6rem; border-radius: 10px; border: 1px solid var(--cc-line-2); background: var(--cc-surface); color: var(--cc-ink-2); font-weight: 600; font-size: .86rem; cursor: pointer; display: grid; place-items: center; transition: background var(--cc-fast) var(--cc-ease); }
+.cal__navbtn:hover { background: var(--cc-surface-2); }
+.cal__navbtn:focus-visible { outline: none; box-shadow: var(--cc-ring); }
+.cal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal__dow { padding: .3rem 0 .45rem; font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cc-muted); text-align: center; }
+.cal__cell { position: relative; min-height: 86px; padding: .4rem .4rem .35rem; border-radius: 10px; border: 1px solid var(--cc-line); background: var(--cc-surface); text-align: left; display: flex; flex-direction: column; gap: .25rem; cursor: pointer; font: inherit; color: var(--cc-ink); transition: border-color var(--cc-fast) var(--cc-ease), background var(--cc-fast) var(--cc-ease); min-width: 0; }
+.cal__cell:hover { border-color: #b8c0cb; }
+.cal__cell:focus-visible { outline: none; box-shadow: var(--cc-ring); }
+.cal__cell.is-out { background: transparent; border-color: transparent; cursor: default; }
+.cal__cell.is-past .cal__n { color: #9aa3ae; }
+.cal__cell.is-today .cal__n { background: var(--cc-primary); color: #fff; }
+.cal__cell.is-selected { border-color: var(--cc-primary); background: var(--cc-primary-soft); }
+.cal__n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: .82rem; font-weight: 600; }
+.cal__chips { display: grid; gap: 3px; min-width: 0; }
+.cal__chip { display: block; padding: 2px 6px; border-radius: 6px; font-size: .7rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal__more { font-size: .7rem; color: var(--cc-muted); font-weight: 600; padding-left: 2px; }
+.cal__dots { display: none; gap: 3px; justify-content: center; }
+.cal__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* Lista de sesiones */
+.ses-list__head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: 1rem 1.2rem .2rem; }
+.ses-list__title { margin: 0; font-size: 1rem; font-weight: 700; }
+.ses-toolbar { border-bottom: 1px solid var(--cc-line); }
+.ses-toolbar .field-select { flex: 1 1 160px; }
+.ses-items { list-style: none; margin: 0; padding: .4rem .6rem .8rem; display: grid; gap: .35rem; max-height: 640px; overflow-y: auto; }
+.ses-item { display: grid; grid-template-columns: 54px 1fr auto; gap: .8rem; align-items: center; width: 100%; padding: .7rem .7rem; border-radius: 12px; border: 1px solid transparent; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: background var(--cc-fast) var(--cc-ease), border-color var(--cc-fast) var(--cc-ease); }
+.ses-item:hover { background: var(--cc-surface-2); border-color: var(--cc-line); }
+.ses-item:focus-visible { outline: none; box-shadow: var(--cc-ring); }
+.ses-date { display: grid; justify-items: center; padding: .35rem 0; border-radius: 10px; line-height: 1.1; }
+.ses-date__d { font-size: 1.2rem; font-weight: 800; }
+.ses-date__m { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.ses-main { min-width: 0; }
+.ses-main__t { margin: 0; font-weight: 700; color: var(--cc-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ses-main__s { margin: .15rem 0 0; font-size: .82rem; color: var(--cc-muted); display: flex; flex-wrap: wrap; gap: .2rem .6rem; }
+.ses-main__s span { display: inline-flex; align-items: center; gap: .25rem; }
+.ses-main__s svg { flex: none; }
+
+@media (max-width: 1100px) { .ses-layout { grid-template-columns: 1fr; } .ses-items { max-height: none; } }
+@media (max-width: 640px) {
+  .cal { padding: .9rem .7rem 1rem; }
+  .cal__cell { min-height: 52px; align-items: center; padding: .3rem .1rem; }
+  .cal__chips { display: none; }
+  .cal__dots { display: flex; }
+  .cal__dow { font-size: .66rem; }
+  .ses-item { grid-template-columns: 48px 1fr; }
+  .ses-item .badge { grid-column: 2; justify-self: start; }
+}
+
+/* HU-011: acceso a asistencia en el detalle */
+.det-asis { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--cc-line); display: grid; gap: .5rem; }
+.det-asis__title { margin: 0; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cc-muted); }
+.det-asis__btn { width: 100%; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.det-asis__note { margin: 0; font-size: .86rem; color: var(--cc-muted); }

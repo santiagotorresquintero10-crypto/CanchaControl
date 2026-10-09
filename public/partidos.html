@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Partidos y rendimiento · CanchaControl</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0f1a14" />
+  <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Kaushan+Script&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <!-- Tarjeta 3D: el MISMO componente de HU-011/012 (estilos en asistencia.css) -->
+  <link rel="stylesheet" href="css/asistencia.css" />
+  <link rel="stylesheet" href="css/pitch.css" />
+  <link rel="stylesheet" href="css/partidos.css" />
+  <script type="module" src="js/partidos.js"></script>
+</head>
+<body class="app-page">
+  <div id="boot-loader" class="boot-loader" role="status" aria-live="polite">
+    <div class="boot-loader__inner">
+      <img src="assets/img/logo.svg" alt="" width="56" height="56" />
+      <span class="spinner spinner--lg" aria-hidden="true"></span>
+      <p class="boot-loader__text">Validando sesión…</p>
+    </div>
+  </div>
+  <script>
+    setTimeout(function () {
+      var b = document.getElementById("boot-loader");
+      if (!b || b.classList.contains("is-done")) return;
+      b.innerHTML = '<div class="boot-loader__inner boot-loader__error" role="alert">' +
+        '<img src="assets/img/logo.svg" alt="" width="56" height="56">' +
+        '<p><strong>No fue posible cargar CanchaControl.</strong><br>Revisa tu conexión a internet e intenta nuevamente.</p>' +
+        '<button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button></div>';
+    }, 20000);
+  </script>
+
+  <div id="app" data-private hidden>
+    <div data-shell-sidebar></div>
+    <div class="app-main">
+      <div data-shell-header></div>
+      <main class="page mp" id="mp">
+        <header class="page-head">
+          <div>
+            <h1 class="page-head__title">Partidos y rendimiento</h1>
+            <p class="page-head__subtitle" id="mp-sub">Gestiona tus encuentros deportivos, registra estadísticas y organiza tu equipo.</p>
+          </div>
+          <button type="button" class="btn btn-primary" id="new-btn" hidden>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo partido
+          </button>
+        </header>
+
+        <div class="mp-tabs" role="tablist" aria-label="Secciones">
+          <button type="button" role="tab" id="tab-partidos" aria-controls="pan-partidos" aria-selected="true" data-tab="partidos">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><line x1="3.5" y1="10" x2="20.5" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
+            Partidos
+          </button>
+          <button type="button" role="tab" id="tab-rend" aria-controls="pan-rend" aria-selected="false" data-tab="rend" tabindex="-1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>
+            Rendimiento
+          </button>
+          <button type="button" role="tab" id="tab-alin" aria-controls="pan-alin" aria-selected="false" data-tab="alin" tabindex="-1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="12" x2="21" y2="12"/><circle cx="12" cy="12" r="3"/></svg>
+            Alineación táctica
+          </button>
+        </div>
+
+        <div id="mp-state" class="mp-state" hidden></div>
+
+        <!-- ================= PARTIDOS ================= -->
+        <section id="pan-partidos" role="tabpanel" aria-labelledby="tab-partidos" class="mp-panel">
+          <section class="kpis mp-kpis" id="p-kpis" aria-label="Filtrar partidos por estado">
+            <button type="button" class="kpi kpi--gray kpi--filter" data-filter="" aria-pressed="true"><span class="kpi__body"><span class="kpi__value" id="pk-total">–</span><span class="kpi__label">Total de partidos</span></span></button>
+            <button type="button" class="kpi kpi--blue kpi--filter" data-filter="Programado" aria-pressed="false"><span class="kpi__body"><span class="kpi__value" id="pk-prog">–</span><span class="kpi__label">Programados</span></span></button>
+            <button type="button" class="kpi kpi--green kpi--filter" data-filter="Disputado" aria-pressed="false"><span class="kpi__body"><span class="kpi__value" id="pk-disp">–</span><span class="kpi__label">Disputados</span></span></button>
+            <button type="button" class="kpi kpi--red kpi--filter" data-filter="Cancelado" aria-pressed="false"><span class="kpi__body"><span class="kpi__value" id="pk-canc">–</span><span class="kpi__label">Cancelados</span></span></button>
+          </section>
+          <div class="toolbar mp-toolbar">
+            <div class="toolbar__search">
+              <label class="sr-only" for="p-search">Buscar por rival o lugar</label>
+              <svg class="toolbar__search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="p-search" class="field-input" placeholder="Buscar por rival o lugar..." autocomplete="off" />
+            </div>
+            <label class="sr-only" for="p-cat">Filtrar por categoría</label>
+            <select id="p-cat" class="field-input field-select"><option value="">Todas las categorías</option></select>
+          </div>
+          <ul class="mp-list" id="p-list" aria-live="polite"></ul>
+          <div class="empty" id="p-empty" hidden></div>
+        </section>
+
+        <!-- ================= RENDIMIENTO ================= -->
+        <section id="pan-rend" role="tabpanel" aria-labelledby="tab-rend" class="mp-panel" hidden>
+          <form class="mp-filters" id="r-filters" aria-label="Filtros de rendimiento">
+            <div class="mp-f"><label for="r-cat">Categoría</label><select id="r-cat" class="field-input field-select"><option value="">Todas</option></select></div>
+            <div class="mp-f mp-f--wide"><label for="r-partido">Partido</label><select id="r-partido" class="field-input field-select"><option value="">Todos los disputados</option></select></div>
+            <div class="mp-f"><label for="r-jugador">Jugador</label><select id="r-jugador" class="field-input field-select"><option value="">Todos</option></select></div>
+            <div class="mp-f"><label for="r-desde">Desde</label><input type="date" id="r-desde" class="field-input" /></div>
+            <div class="mp-f"><label for="r-hasta">Hasta</label><input type="date" id="r-hasta" class="field-input" /></div>
+            <p class="f-error mp-f__err" id="r-err" role="alert"></p>
+          </form>
+          <section class="mp-stats" id="r-stats" aria-label="Indicadores de rendimiento" aria-live="polite"></section>
+          <section class="panel-card mp-sec" aria-labelledby="r-sec-t">
+            <header class="mp-sec__head">
+              <div><h2 class="mp-h2" id="r-sec-t">Rendimiento por partido</h2><p class="mp-sec__sub" id="r-sec-sub"></p></div>
+              <div class="mp-sec__tools">
+                <label class="sr-only" for="r-group">Organizar</label>
+                <select id="r-group" class="field-input field-select mp-group"><option value="none">Sin agrupar</option><option value="pos">Agrupar por posición</option></select>
+              </div>
+            </header>
+            <div id="r-body"></div>
+          </section>
+        </section>
+
+        <!-- ================= ALINEACIÓN ================= -->
+        <section id="pan-alin" role="tabpanel" aria-labelledby="tab-alin" class="mp-panel" hidden>
+          <div class="mp-alin-top">
+            <div class="mp-f mp-f--wide"><label for="a-partido">Partido</label><select id="a-partido" class="field-input field-select"></select></div>
+            <div class="mp-alin-meta" id="a-meta" aria-live="polite"></div>
+            <div class="mp-alin-actions">
+              <button type="button" class="btn btn-ghost" id="a-discard" hidden>Descartar cambios</button>
+              <button type="button" class="btn btn-primary" id="a-save" hidden><span class="btn-label">Guardar alineación</span></button>
+            </div>
+          </div>
+          <p class="mp-help" id="a-help" hidden>Arrastra a los jugadores desde el banco a la cancha y muévelos libremente. Suelta un jugador sobre otro para intercambiarlos, o sobre el banco para retirarlo. También puedes tocar un jugador para ver sus opciones.</p>
+          <div id="a-body"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Formulario de partido -->
+  <div class="drawer" id="pf-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="pf-title">
+      <header class="drawer__head">
+        <div><h2 class="drawer__title" id="pf-title">Nuevo partido</h2><p class="drawer__subtitle" id="pf-sub">Registra un encuentro de una de tus categorías.</p></div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </header>
+      <form class="drawer__body" id="pf-form" novalidate>
+        <div class="f-field"><label class="f-label" for="pf-cat">Categoría <span aria-hidden="true">*</span></label><select class="field-input field-select" id="pf-cat"></select><p class="f-error" id="pf-cat-err"></p></div>
+        <div class="f-field"><label class="f-label" for="pf-rival">Equipo rival <span aria-hidden="true">*</span></label><input class="field-input" id="pf-rival" maxlength="60" autocomplete="off" placeholder="Ej. Club Deportivo Las Águilas" /><p class="f-error" id="pf-rival-err"></p></div>
+        <div class="f-row">
+          <div class="f-field"><label class="f-label" for="pf-fecha">Fecha <span aria-hidden="true">*</span></label><input class="field-input" id="pf-fecha" type="date" /><p class="f-error" id="pf-fecha-err"></p></div>
+          <div class="f-field"><label class="f-label" for="pf-hora">Hora <span aria-hidden="true">*</span></label><input class="field-input" id="pf-hora" type="time" /><p class="f-error" id="pf-hora-err"></p></div>
+        </div>
+        <div class="f-field"><label class="f-label" for="pf-lugar">Lugar</label><input class="field-input" id="pf-lugar" maxlength="80" autocomplete="off" placeholder="Ej. Estadio municipal, cancha 1" /><p class="f-error" id="pf-lugar-err"></p></div>
+        <div class="f-row">
+          <div class="f-field"><label class="f-label" for="pf-tipo">Tipo de partido <span aria-hidden="true">*</span></label><select class="field-input field-select" id="pf-tipo"></select><p class="f-error" id="pf-tipo-err"></p></div>
+          <div class="f-field"><label class="f-label" for="pf-formato">Formato de juego <span aria-hidden="true">*</span></label><select class="field-input field-select" id="pf-formato"></select><p class="f-error" id="pf-formato-err"></p></div>
+        </div>
+        <div class="f-field"><label class="f-label" for="pf-estado">Estado <span aria-hidden="true">*</span></label><select class="field-input field-select" id="pf-estado"></select><p class="f-error" id="pf-estado-err"></p></div>
+        <div class="f-field"><label class="f-label" for="pf-obs">Observaciones (opcional)</label><textarea class="field-input" id="pf-obs" maxlength="300"></textarea></div>
+        <div class="f-alert" id="pf-alert" role="alert" hidden></div>
+      </form>
+      <footer class="drawer__foot">
+        <button type="button" class="btn btn-soft" data-close>Cancelar</button>
+        <button type="submit" form="pf-form" class="btn btn-primary" id="pf-save"><span class="btn-label">Guardar partido</span></button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Detalle del partido -->
+  <div class="drawer" id="pd-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="pd-title">
+      <header class="drawer__head">
+        <div><h2 class="drawer__title" id="pd-title">Partido</h2><p class="drawer__subtitle" id="pd-sub"></p></div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </header>
+      <div class="drawer__body"><dl class="detail-list" id="pd-list"></dl><div class="mp-pd-actions" id="pd-actions"></div></div>
+    </aside>
+  </div>
+
+  <!-- Convocatoria -->
+  <div class="drawer drawer--wide" id="cv-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="cv-title">
+      <header class="drawer__head">
+        <div><h2 class="drawer__title" id="cv-title">Convocados</h2><p class="drawer__subtitle" id="cv-sub"></p></div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </header>
+      <div class="drawer__body">
+        <div class="mp-cv-tools">
+          <span class="mp-cv-count" id="cv-count" aria-live="polite"></span>
+          <button type="button" class="btn btn-soft btn-sm" id="cv-all">Seleccionar todos</button>
+          <label class="sr-only" for="cv-group">Organizar</label>
+          <select id="cv-group" class="field-input field-select mp-group"><option value="none">Sin agrupar</option><option value="pos">Agrupar por posición</option></select>
+        </div>
+        <div id="cv-list" class="mp-cv-list"></div>
+        <div class="f-alert" id="cv-alert" role="alert" hidden></div>
+      </div>
+      <footer class="drawer__foot">
+        <button type="button" class="btn btn-soft" data-close>Cancelar</button>
+        <button type="button" class="btn btn-primary" id="cv-save"><span class="btn-label">Guardar convocatoria</span></button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Rendimiento individual -->
+  <div class="drawer drawer--wide" id="rf-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="rf-title">
+      <header class="drawer__head">
+        <div><h2 class="drawer__title" id="rf-title">Rendimiento</h2><p class="drawer__subtitle" id="rf-sub"></p></div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </header>
+      <form class="drawer__body mp-rf" id="rf-form" novalidate>
+        <div class="mp-rf__card" id="rf-card"></div>
+        <div class="mp-rf__fields" id="rf-fields"></div>
+      </form>
+      <footer class="drawer__foot">
+        <button type="button" class="btn btn-soft" data-close>Cancelar</button>
+        <button type="submit" form="rf-form" class="btn btn-primary" id="rf-save"><span class="btn-label">Guardar rendimiento</span></button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Detalle de jugador en la alineación (panel lateral) -->
+  <div class="drawer" id="aj-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="aj-title">
+      <header class="drawer__head">
+        <div><h2 class="drawer__title" id="aj-title">Jugador</h2><p class="drawer__subtitle" id="aj-sub"></p></div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </header>
+      <div class="drawer__body" id="aj-body"></div>
+      <footer class="drawer__foot mp-aj-foot" id="aj-foot"></footer>
+    </aside>
+  </div>
+
+  <div id="toast-region" class="toast-region"></div>
+</body>
+</html>

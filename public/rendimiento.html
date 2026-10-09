@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mi rendimiento · CanchaControl</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0f1a14" />
+  <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Kaushan+Script&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/global.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <!-- Tarjeta 3D: el MISMO componente de HU-011/012/013 (estilos en asistencia.css) -->
+  <link rel="stylesheet" href="css/asistencia.css" />
+  <!-- Cancha táctica: el MISMO componente de HU-013 -->
+  <link rel="stylesheet" href="css/pitch.css" />
+  <link rel="stylesheet" href="css/rendimiento.css" />
+  <script type="module" src="js/rendimiento.js"></script>
+</head>
+<body class="app-page">
+  <div id="boot-loader" class="boot-loader" role="status" aria-live="polite">
+    <div class="boot-loader__inner">
+      <img src="assets/img/logo.svg" alt="" width="56" height="56" />
+      <span class="spinner spinner--lg" aria-hidden="true"></span>
+      <p class="boot-loader__text">Validando sesión…</p>
+    </div>
+  </div>
+  <script>
+    setTimeout(function () {
+      var b = document.getElementById("boot-loader");
+      if (!b || b.classList.contains("is-done")) return;
+      b.innerHTML = '<div class="boot-loader__inner boot-loader__error" role="alert">' +
+        '<img src="assets/img/logo.svg" alt="" width="56" height="56">' +
+        '<p><strong>No fue posible cargar CanchaControl.</strong><br>Revisa tu conexión a internet e intenta nuevamente.</p>' +
+        '<button type="button" class="btn btn-primary" onclick="location.reload()">Reintentar</button></div>';
+    }, 20000);
+  </script>
+
+  <div id="app" data-private hidden>
+    <div data-shell-sidebar></div>
+    <div class="app-main">
+      <div data-shell-header></div>
+      <main class="page mr" id="mr">
+        <header class="page-head mr-head">
+          <div>
+            <h1 class="page-head__title">Mi carrera deportiva</h1>
+            <p class="page-head__subtitle">Tus partidos, tus estadísticas, tu evolución. Cada esfuerzo cuenta.</p>
+          </div>
+          <span class="badge badge--neutral">Solo consulta</span>
+        </header>
+
+        <div id="mr-state" class="mr-state" hidden></div>
+
+        <div id="mr-body">
+          <!-- 1 · HERO DEPORTIVO -->
+          <section class="mr-hero" aria-labelledby="mr-hola">
+            <svg class="mr-hero__lines" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <g fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="20" y="20" width="1160" height="360" rx="6"/><line x1="600" y1="20" x2="600" y2="380"/>
+                <circle cx="600" cy="200" r="78"/><rect x="20" y="110" width="150" height="180"/><rect x="1030" y="110" width="150" height="180"/>
+                <path d="M170 150a60 60 0 0 1 0 100M1030 150a60 60 0 0 0 0 100"/>
+              </g>
+            </svg>
+            <div class="mr-hero__card">
+              <div class="mr-stage" id="card-slot"><div class="skel mr-skel-card"></div></div>
+            </div>
+            <div class="mr-hero__info">
+              <p class="mr-kicker">Perfil deportivo</p>
+              <h2 class="mr-hola" id="mr-hola">¡Vamos!</h2>
+              <p class="mr-hola__sub">Este es tu espacio para conocer cómo estás creciendo como futbolista.</p>
+              <ul class="mr-chips" id="mr-chips"></ul>
+              <div class="mr-gauge" id="gauge" role="img" aria-label="Valoración promedio">
+                <svg viewBox="0 0 120 120" aria-hidden="true">
+                  <circle class="mr-gauge__track" cx="60" cy="60" r="50"/>
+                  <circle class="mr-gauge__bar" id="gauge-bar" cx="60" cy="60" r="50"/>
+                </svg>
+                <div class="mr-gauge__center">
+                  <strong class="mr-gauge__v" id="gauge-v">–</strong>
+                  <span class="mr-gauge__scale" id="gauge-scale">de 10</span>
+                </div>
+                <div class="mr-gauge__txt">
+                  <span class="mr-gauge__l">Valoración promedio</span>
+                  <span class="mr-gauge__n" id="gauge-n"></span>
+                </div>
+              </div>
+            </div>
+            <div class="mr-hero__coach">
+              <div class="mr-bubble" id="mr-bubble" role="status" aria-live="polite"></div>
+              <div class="mr-mascot" id="mr-mascot"></div>
+              <button type="button" class="btn mr-motiva" id="motivame">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+                ¡Motívame!
+              </button>
+            </div>
+          </section>
+
+          <!-- Período (filtra estadísticas, gráficos e historial) -->
+          <section class="mr-period" aria-label="Período">
+            <div class="mr-seg" role="group" aria-label="Seleccionar período" id="period"></div>
+            <form class="mr-range" id="range-form" hidden novalidate>
+              <div class="mr-range__f"><label for="r-desde">Desde</label><input class="field-input" type="date" id="r-desde" required /></div>
+              <div class="mr-range__f"><label for="r-hasta">Hasta</label><input class="field-input" type="date" id="r-hasta" required /></div>
+              <button type="submit" class="btn btn-primary mr-range__btn">Aplicar</button>
+              <p class="f-error mr-range__err" id="range-err" role="alert"></p>
+            </form>
+            <p class="mr-period__label" id="period-label" aria-live="polite"></p>
+          </section>
+
+          <!-- 2 · MIS ESTADÍSTICAS -->
+          <section class="mr-sec" aria-labelledby="st-title">
+            <h2 class="mr-h2" id="st-title">Mis estadísticas</h2>
+            <div class="mr-score" id="mr-score"></div>
+            <p class="mr-note">Partidos jugados = encuentros disputados con minutos registrados. La valoración promedio solo cuenta los partidos calificados.</p>
+          </section>
+
+          <!-- 3 · MI EVOLUCIÓN -->
+          <section class="mr-sec mr-evo" aria-labelledby="ev-title">
+            <header class="mr-sec__head">
+              <h2 class="mr-h2" id="ev-title">Mi evolución deportiva</h2>
+              <p class="mr-sec__hint">Pasa el cursor o enfoca un punto para ver el detalle; haz clic para abrir el partido.</p>
+            </header>
+            <div class="mr-charts">
+              <article class="mr-chart mr-chart--wide">
+                <h3 class="mr-h3">Valoración por partido</h3>
+                <div class="mr-chart__box" id="ch-val"></div>
+              </article>
+              <article class="mr-chart">
+                <h3 class="mr-h3">Goles y asistencias</h3>
+                <ul class="mr-legend" aria-label="Leyenda">
+                  <li><span class="mr-sw mr-sw--gol"></span>Goles</li>
+                  <li><span class="mr-sw mr-sw--asi"></span>Asistencias</li>
+                </ul>
+                <div class="mr-chart__box" id="ch-ga"></div>
+              </article>
+              <article class="mr-chart">
+                <h3 class="mr-h3">Minutos jugados</h3>
+                <div class="mr-chart__box" id="ch-min"></div>
+              </article>
+            </div>
+          </section>
+
+          <!-- 4 · MIS PARTIDOS -->
+          <section class="mr-sec" aria-labelledby="mp-title">
+            <header class="mr-sec__head">
+              <h2 class="mr-h2" id="mp-title">Mis partidos</h2>
+              <span class="mr-count" id="mp-count"></span>
+            </header>
+            <div class="mr-matches" id="matches" aria-live="polite"></div>
+          </section>
+
+          <!-- 5 · ALINEACIONES -->
+          <section class="mr-sec mr-alin" aria-labelledby="al-title">
+            <header class="mr-sec__head">
+              <h2 class="mr-h2" id="al-title">Mis alineaciones</h2>
+              <div class="mr-alin__pick">
+                <label class="sr-only" for="al-sel">Partido</label>
+                <select class="field-input field-select" id="al-sel"></select>
+              </div>
+            </header>
+            <div class="mr-alin__grid">
+              <div id="al-pitch" class="mr-alin__pitch" aria-live="polite"></div>
+              <aside class="mr-alin__info" id="al-info" aria-live="polite"></aside>
+            </div>
+          </section>
+
+          <!-- Hitos de la carrera (globales, no dependen del período) -->
+          <section class="mr-sec mr-hitos" aria-labelledby="hi-title">
+            <header class="mr-sec__head">
+              <h2 class="mr-h2" id="hi-title">Mis momentos destacados</h2>
+              <span class="mr-tag">Todo el historial</span>
+            </header>
+            <ol class="mr-hitos__list" id="hitos"></ol>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Detalle de un partido (solo lectura) -->
+  <div class="drawer drawer--wide" id="md-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="md-title">
+      <header class="drawer__head">
+        <div><h2 class="drawer__title" id="md-title">Partido</h2><p class="drawer__subtitle" id="md-sub"></p></div>
+        <button type="button" class="icon-btn" data-close aria-label="Cerrar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+      <div class="drawer__body" id="md-body"></div>
+    </aside>
+  </div>
+
+  <div class="mr-tip" id="mr-tip" role="tooltip" hidden></div>
+  <div id="toast-region" class="toast-region"></div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+IMÁGENES DEL LOGIN
+==================
+
+1) cancha.jpg  (OBLIGATORIA para que quede igual al diseño)
+   Foto del panel izquierdo: balón + arco al atardecer.
+   - Formato vertical (aprox. 4:5 o 3:4), mínimo 1400 px de alto.
+   - Optimizada: idealmente < 400 KB (JPG calidad 75-80 o WebP).
+   - Usa una foto propia o con licencia que permita uso comercial.
+   El texto se ubica arriba y los beneficios abajo: elige una foto donde
+   el centro y la parte inferior tengan el motivo (balón/arco).
+   Si no existe, se muestra un fondo degradado de respaldo.
+
+2) firebase-logo.svg  (opcional, badge "Acceso seguro con Firebase")
+   Descarga el logo OFICIAL desde:
+   https://firebase.google.com/brand-guidelines
+   y guárdalo con este nombre. No lo modifiques (lo exigen las pautas de marca).
+   Si no existe, el login simplemente no muestra el ícono.
+
+3) logo.svg / pitch-lines.svg
+   Logo de CanchaControl (balón) y recurso gráfico. Puedes reemplazar logo.svg
+   por tu logo definitivo manteniendo el nombre.

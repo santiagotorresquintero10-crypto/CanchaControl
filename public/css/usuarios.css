@@ -1,0 +1,50 @@
+/* ==========================================================
+   CanchaControl — Usuarios (HU-002): solo lo específico.
+   Layout, KPIs, toolbar, tabla base, drawer, menús → app.css
+   ========================================================== */
+.users-table tr.is-inactive .u-name, .users-table tr.is-inactive .u-email { color: var(--cc-muted); }
+.users-table th:last-child, .users-table td:last-child { text-align: right; width: 72px; }
+
+.u-person { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.u-avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: .78rem; font-weight: 700; color: #fff; background: var(--cc-green-500); }
+.u-avatar--Entrenador { background: #1d4ed8; }
+.u-avatar--Jugador { background: #c2410c; }
+.u-avatar--x { background: #9aa3ae; }
+.u-name { font-weight: 600; color: var(--cc-ink); }
+.u-me { margin-left: .4rem; font-size: .72rem; font-weight: 600; color: var(--cc-green-500); background: var(--cc-green-50); padding: .1rem .45rem; border-radius: 999px; }
+.u-email { color: var(--cc-ink-2); word-break: break-all; }
+.u-last { color: var(--cc-muted); white-space: nowrap; }
+
+.pill--Administrador { background: var(--cc-green-50); color: var(--cc-green-700); }
+.pill--Entrenador    { background: #eff6ff; color: #1e40af; }
+.pill--Jugador       { background: #fff7ed; color: #9a3412; }
+.pill--x             { background: var(--cc-surface-2); color: var(--cc-muted); }
+
+.status { display: inline-flex; align-items: center; gap: .45rem; font-weight: 500; white-space: nowrap; }
+.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.status--Activo   { color: var(--cc-success); }
+.status--Inactivo { color: #9aa3ae; }
+
+/* Drawer de usuarios: pie con dos botones alineados a la derecha */
+#user-drawer .drawer__foot { display: flex; justify-content: flex-end; }
+#user-drawer .drawer__foot .btn { width: auto; min-width: 130px; }
+
+@media (max-width: 768px) {
+  .users-table thead { display: none; }
+  .users-table, .users-table tbody { display: block; }
+  .users-table tr {
+    display: grid; grid-template-columns: 1fr auto;
+    grid-template-areas: "person actions" "email email" "rol estado" "last last";
+    gap: .35rem .75rem; padding: .95rem; border-bottom: 1px solid var(--cc-line);
+  }
+  .users-table td { display: block; padding: 0; border: 0; }
+  .users-table td:nth-child(1) { grid-area: person; }
+  .users-table td:nth-child(2) { grid-area: email; font-size: .88rem; }
+  .users-table td:nth-child(3) { grid-area: rol; justify-self: start; }
+  .users-table td:nth-child(4) { grid-area: estado; justify-self: end; align-self: center; }
+  .users-table td:nth-child(5) { grid-area: last; font-size: .82rem; }
+  .users-table td:nth-child(5)::before { content: "Último acceso: "; color: var(--cc-muted); }
+  .users-table td:last-child { grid-area: actions; width: auto; }
+  .users-table tr.skel-row { display: block; }
+  #user-drawer .drawer__foot .btn { flex: 1; min-width: 0; }
+}

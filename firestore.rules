@@ -1,0 +1,876 @@
+rules_version = '2';
+
+// ==========================================================
+// CanchaControl — Reglas de Firestore (HU-001 · HU-002 · HU-003 · HU-004 · HU-005 · HU-006 · HU-007 · HU-008 · HU-009 · HU-010 · HU-011 · HU-012 · HU-013 · HU-014)
+// ----------------------------------------------------------
+// CAPA 2 (obligatoria). El JavaScript del navegador es UX;
+// ESTO es lo que realmente permite o bloquea cada lectura/escritura.
+//
+// Toda regla responde, en orden:
+//   1. ¿Quién es?            request.auth.uid  (única identidad confiable)
+//   2. ¿Qué rol tiene?       users/{uid}.rol    (leído aquí, no enviado por el cliente)
+//   3. ¿Está activo?         users/{uid}.estado == "Activo"
+//   4. ¿Puede entrar?        hasRole([...])
+//   5. ¿El registro le corresponde?  relación guardada en el documento
+//   6. ¿Qué acción?          read / create / update / delete por separado
+// Lo que no está permitido explícitamente: DENEGADO.
+// ==========================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers de identidad ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function myProfile() {
+      return get(profilePath()).data;
+    }
+
+    function validRoles() {
+      return ['Administrador', 'Entrenador', 'Jugador'];
+    }
+
+    // Quien entra con contraseña debe tener el correo verificado.
+    // (Google entrega correos verificados; Microsoft garantiza la identidad.)
+    function emailOk() {
+      return request.auth.token.email_verified == true
+        || request.auth.token.firebase.sign_in_provider in ['google.com', 'microsoft.com'];
+    }
+
+    // Usuario autenticado + correo OK + perfil existente + Activo + rol válido.
+    function isActive() {
+      return signedIn()
+        && emailOk()
+        && exists(profilePath())
+        && myProfile().estado == 'Activo'
+        && myProfile().rol in validRoles();
+    }
+
+    function hasRole(roles) {
+      return isActive() && myProfile().rol in roles;
+    }
+
+    function isAdmin() {
+      return hasRole(['Administrador']);
+    }
+
+    // ¿El documento es del propio usuario? (identidad = request.auth.uid)
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // ------------------------------------------------------
+    // PRINCIPIO DE AISLAMIENTO (se aplica en cada HU futura)
+    // ------------------------------------------------------
+    // NUNCA autorizar con un dato que el cliente pueda escribir:
+    //   ✕ request.resource.data.entrenadorId == request.auth.uid   (solo en CREATE
+    //     es válido como "no puedes crear a nombre de otro"; jamás como permiso de lectura)
+    //   ✕ un ID que venga de la URL
+    // Autorizar con relaciones GUARDADAS y verificables:
+    //   ✓ resource.data.entrenadorId == request.auth.uid           (registro existente)
+    //   ✓ get(/categorias/$(resource.data.categoriaId)).data.entrenadorId == request.auth.uid
+    //   ✓ resource.data.jugadorId == request.auth.uid               (lo propio del jugador)
+    // Las consultas del frontend DEBEN filtrar igual (where entrenadorId == uid),
+    // porque Firestore rechaza una consulta que podría devolver algo no permitido.
+
+    // Esquema mínimo válido de un perfil.
+    function isValidProfile(data) {
+      return data.keys().hasAll(['uid', 'nombre', 'email', 'rol', 'estado'])
+        && data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 120
+        && data.email is string
+        && data.rol in validRoles()
+        && data.estado in ['Activo', 'Inactivo'];
+    }
+
+    // Campos que cambia una escritura de actualización
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // HU-007 — rutas y vínculo cuenta ↔ expediente (usadas por users y jugadores)
+    function jugadorPath(id) {
+      return /databases/$(database)/documents/jugadores/$(id);
+    }
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+    function jugClavePath(docNorm) {
+      return /databases/$(database)/documents/jugadorClaves/$('doc:' + docNorm);
+    }
+    // HU-009 — ficha deportiva (proyección) de la nómina de una categoría
+    function fichaPath(catId, jugadorId) {
+      return /databases/$(database)/documents/categorias/$(catId)/nomina/$(jugadorId);
+    }
+    // La ficha solo tiene la lista blanca de campos y debe ser IDÉNTICA al expediente.
+    function fichaCoincide(f, j) {
+      return f.keys().hasOnly(['nombres', 'apellidos', 'tipoDocumento', 'numeroDocumento', 'fechaNacimiento', 'genero',
+                               'posicion', 'numeroCamiseta', 'estado', 'updatedAt'])
+        && f.nombres == j.nombres && f.apellidos == j.apellidos
+        && f.tipoDocumento == j.tipoDocumento && f.numeroDocumento == j.numeroDocumento
+        && f.fechaNacimiento == j.fechaNacimiento
+        && f.get('genero', '') == j.get('genero', '')
+        && f.posicion == j.get('posicion', '')
+        && f.get('numeroCamiseta', null) == j.get('numeroCamiseta', null)
+        && f.estado == j.estado;
+    }
+    // HU-010 — ¿catId es la categoría ACTUAL del Jugador autenticado?
+    // Cadena guardada: users/{uid}.jugadorId → jugadores/{id}.categoriaId. Nada viene del cliente.
+    function esMiCategoria(catId) {
+      return hasRole(['Jugador'])
+        && myProfile().get('jugadorId', null) is string
+        && get(jugadorPath(myProfile().jugadorId)).data.get('categoriaId', null) == catId;
+    }
+    function sinJugador(data) {
+      return !('jugadorId' in data) || data.jugadorId == null;
+    }
+
+    // ---------- Perfiles: users/{uid} (HU-001, HU-002, HU-003) ----------
+    match /users/{userId} {
+
+      // LEER: el propio usuario (aunque esté inactivo, para mostrarle el motivo)
+      // o un Administrador activo (listado de HU-002). Nadie sin sesión.
+      allow read: if isSelf(userId) || isAdmin()
+        // HU-010: el Jugador puede leer el perfil del Entrenador ACTUAL de SU categoría
+        // (para mostrar "Entrenador principal"). Ningún otro perfil.
+        || (hasRole(['Jugador'])
+            && myProfile().get('jugadorId', null) is string
+            && get(catPath(get(jugadorPath(myProfile().jugadorId)).data.categoriaId)).data.entrenadorId == userId);
+
+      // HU-001 — El propio usuario ACTIVO solo registra su último acceso y
+      // sus proveedores. No puede tocar rol, estado, nombre ni email
+      // (autopromoción y auto-reactivación imposibles).
+      allow update: if isSelf(userId)
+        && isActive()
+        && changedKeys().hasOnly(['lastLoginAt', 'providers'])
+        && request.resource.data.lastLoginAt == request.time
+        && request.resource.data.providers is list
+        && request.resource.data.providers.size() <= 5;
+
+      // HU-002 — CREAR perfil: solo Administrador activo.
+      // Fechas puestas por el servidor; lastLoginAt no se puede inventar.
+      allow create: if isAdmin()
+        && isValidProfile(request.resource.data)
+        && request.resource.data.uid == userId
+        && request.resource.data.email == request.resource.data.email.lower()
+        && request.resource.data.keys().hasOnly(['uid', 'nombre', 'email', 'rol', 'estado', 'providers', 'createdAt', 'updatedAt', 'lastLoginAt'])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && (!('lastLoginAt' in request.resource.data) || request.resource.data.lastLoginAt == null);
+
+      // HU-002 — EDITAR: solo Administrador activo y solo nombre, rol y estado.
+      // uid, email, createdAt y lastLoginAt son inmutables desde la app
+      // (el correo debe coincidir siempre con Firebase Authentication).
+      allow update: if isAdmin()
+        && changedKeys().hasOnly(['nombre', 'rol', 'estado', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && isValidProfile(request.resource.data)
+        // HU-007: una cuenta vinculada a un expediente NO puede dejar de ser Jugador
+        // (no se rompe la relación en silencio; tampoco se desvincula sola).
+        && (sinJugador(resource.data) || request.resource.data.rol == 'Jugador')
+        // Nadie cambia SU PROPIO rol ni estado. Como quien edita es siempre
+        // un Administrador activo distinto del afectado, CanchaControl nunca
+        // puede quedar sin Administrador activo por acciones desde la app.
+        && (userId != request.auth.uid || !changedKeys().hasAny(['rol', 'estado']));
+
+      // HU-007 — VINCULAR cuenta ↔ expediente (users/{uid}.jugadorId).
+      // Solo Administrador, solo de "vacío" a un id, y solo en la MISMA operación
+      // que crea ese expediente apuntando a este uid (getAfter). La cuenta debe
+      // ser Jugador y estar Activa. Nadie puede cambiar ni borrar jugadorId después
+      // (desvincular será una operación específica de una HU futura).
+      allow update: if isAdmin()
+        && changedKeys().hasOnly(['jugadorId', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && resource.data.rol == 'Jugador'
+        && resource.data.estado == 'Activo'
+        && sinJugador(resource.data)
+        && request.resource.data.jugadorId is string
+        && getAfter(jugadorPath(request.resource.data.jugadorId)).data.userId == userId;
+
+      // HU-002 — No hay eliminación: las cuentas se inactivan (historial).
+      allow delete: if false;
+    }
+
+    // ---------- Categorías (HU-004) ----------
+    function catPath(id) {
+      return /databases/$(database)/documents/categorias/$(id);
+    }
+    function clavePath(clave) {
+      return /databases/$(database)/documents/categoriaClaves/$(clave);
+    }
+
+    // Rango coherente según el tipo; los campos del otro tipo DEBEN ser null.
+    function categoriaRangoValido(d) {
+      return (d.tipoConfiguracion == 'rangoEdad'
+          && d.edadMinima is int && d.edadMaxima is int
+          && d.edadMinima >= 3 && d.edadMaxima <= 80
+          && d.edadMinima <= d.edadMaxima
+          && d.anioNacimientoInicio == null && d.anioNacimientoFin == null)
+        || (d.tipoConfiguracion == 'anioNacimiento'
+          && d.anioNacimientoInicio is int && d.anioNacimientoFin is int
+          && d.anioNacimientoInicio >= 1940
+          && d.anioNacimientoInicio <= d.anioNacimientoFin
+          && d.anioNacimientoFin <= request.time.year()
+          && d.edadMinima == null && d.edadMaxima == null);
+    }
+
+    // ¿El UID corresponde a un usuario Entrenador ACTIVO? (se lee de users, no del cliente)
+    function esEntrenadorActivo(uid) {
+      return uid is string
+        && exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.rol == 'Entrenador'
+        && get(/databases/$(database)/documents/users/$(uid)).data.estado == 'Activo';
+    }
+
+    match /categorias/{catId} {
+      // LEER:
+      //  - Administrador: todas.
+      //  - Entrenador ACTIVO: solo las categorías cuyo entrenadorId GUARDADO es su UID
+      //    (HU-005 lo estableció; HU-006 lo usa en "Mis categorías").
+      //    Una consulta sin  where('entrenadorId','==',uid)  es rechazada completa.
+      //    Conocer el ID de una categoría ajena NO da permiso (get directo → PERMISSION_DENIED).
+      //    Se evalúa contra el dato ACTUAL: si el Administrador reasigna, el anterior
+      //    pierde el acceso en ese mismo instante (no hay permisos históricos).
+      //    Categorías sin entrenador (entrenadorId == null): solo Administrador.
+      //  - Jugador (HU-010): solo SU categoría actual (lectura por ID).
+      allow read: if isAdmin()
+        || (hasRole(['Entrenador']) && resource.data.entrenadorId == request.auth.uid)
+        || esMiCategoria(catId);
+
+      // CREAR: solo Administrador activo, datos válidos, estado Activa,
+      // sin entrenador (HU-005), auditoría con su propio uid y fechas del servidor,
+      // y SOLO junto con sus claves únicas de nombre y código (mismo lote).
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['nombre', 'nombreNormalizado', 'codigoGrupo', 'codigoNormalizado',
+             'periodoLectivo', 'tipoConfiguracion', 'edadMinima', 'edadMaxima', 'anioNacimientoInicio',
+             'anioNacimientoFin', 'descripcion', 'estado', 'entrenadorId', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() >= 2 && request.resource.data.nombre.size() <= 60
+        && request.resource.data.nombreNormalizado is string && request.resource.data.nombreNormalizado.size() >= 2
+        && request.resource.data.codigoNormalizado is string
+        && request.resource.data.codigoNormalizado.matches('^[A-Z0-9][A-Z0-9_-]{0,11}$')
+        && request.resource.data.codigoGrupo == request.resource.data.codigoNormalizado
+        && request.resource.data.periodoLectivo is string
+        && request.resource.data.periodoLectivo.matches('^[0-9]{4}-[0-9]{4}$')
+        && categoriaRangoValido(request.resource.data)
+        && request.resource.data.descripcion is string && request.resource.data.descripcion.size() <= 200
+        && request.resource.data.estado == 'Activa'
+        && request.resource.data.entrenadorId == null
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && getAfter(clavePath('nombre:' + request.resource.data.nombreNormalizado)).data.categoriaId == catId
+        && getAfter(clavePath('codigo:' + request.resource.data.codigoNormalizado)).data.categoriaId == catId;
+
+      // HU-005 — ASIGNAR / CAMBIAR ENTRENADOR PRINCIPAL: solo Administrador activo.
+      // Solo cambian entrenadorId + auditoría; el nuevo entrenador debe ser
+      // un usuario real con rol Entrenador y estado Activo. createdAt/createdBy
+      // y el resto de la categoría quedan intactos. Un Entrenador o Jugador que
+      // intente updateDoc(..., {entrenadorId: su uid}) es rechazado (no es admin).
+      allow update: if isAdmin()
+        && changedKeys().hasOnly(['entrenadorId', 'updatedAt', 'updatedBy'])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && esEntrenadorActivo(request.resource.data.entrenadorId);
+
+      // Editar datos de la categoría, inactivarla y eliminarla: aún no existen.
+      allow delete: if false;
+    }
+
+    // Claves únicas: "nombre:<normalizado>" y "codigo:<normalizado>".
+    // Solo se pueden CREAR (nunca sobrescribir): si la clave ya existe, el
+    // set se evalúa como update → denegado → el lote completo falla.
+    match /categoriaClaves/{clave} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['tipo', 'categoriaId'])
+        && existsAfter(catPath(request.resource.data.categoriaId))
+        && ((request.resource.data.tipo == 'nombre'
+              && clave == 'nombre:' + getAfter(catPath(request.resource.data.categoriaId)).data.nombreNormalizado)
+          || (request.resource.data.tipo == 'codigo'
+              && clave == 'codigo:' + getAfter(catPath(request.resource.data.categoriaId)).data.codigoNormalizado));
+      allow update, delete: if false;
+    }
+
+    // ==========================================================
+    // HU-007 — EXPEDIENTES DE JUGADORES
+    //   jugadores/{jugadorId}.userId  = UID real (cuenta con rol Jugador)
+    //   users/{uid}.jugadorId          = jugadorId   (vínculo inverso)
+    //   jugadorClaves/doc:<documento>  = unicidad del documento
+    // 1 cuenta ↔ 1 expediente: el expediente solo se crea si la cuenta NO tenía
+    // jugadorId y, en la misma operación, la cuenta queda apuntando a él.
+    // Lectura: SOLO Administrador (Entrenador/Jugador: HU posteriores, con alcance).
+    // ==========================================================
+    function txt(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+    function validJugador(d) {
+      return d.keys().hasOnly(['userId', 'nombres', 'apellidos', 'tipoDocumento', 'numeroDocumento', 'documentoNormalizado',
+                               'fechaNacimiento', 'genero', 'ciudadNacimiento', 'observaciones',
+                               'telefono', 'correoContacto', 'direccion', 'ciudad', 'emergencia',
+                               'posicion', 'numeroCamiseta', 'fechaIngreso', 'observacionesDeportivas', 'estado', 'categoriaId',
+                               'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.keys().hasAll(['userId', 'nombres', 'apellidos', 'tipoDocumento', 'numeroDocumento', 'documentoNormalizado',
+                            'fechaNacimiento', 'genero', 'emergencia', 'estado', 'categoriaId'])
+        && d.userId is string
+        && txt(d.nombres, 2, 60) && txt(d.apellidos, 2, 60)
+        && d.tipoDocumento in ['RC', 'TI', 'CC', 'CE', 'PA', 'PPT']
+        && txt(d.numeroDocumento, 3, 24)
+        && d.documentoNormalizado is string && d.documentoNormalizado.matches('^[A-Z0-9]{3,20}$')
+        && d.fechaNacimiento is string
+        && d.fechaNacimiento.matches('^(19[4-9][0-9]|20[0-9][0-9])-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
+        && d.genero in ['Masculino', 'Femenino', 'Otro']
+        && txt(d.get('ciudadNacimiento', ''), 0, 60)
+        && txt(d.get('observaciones', ''), 0, 500)
+        && txt(d.get('ciudad', ''), 0, 60)
+        && txt(d.get('observacionesDeportivas', ''), 0, 500)
+        && (d.get('fechaIngreso', '') == ''
+            || (d.fechaIngreso is string
+                && d.fechaIngreso.matches('^(19[4-9][0-9]|20[0-9][0-9])-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')))
+        && txt(d.get('telefono', ''), 0, 20)
+        && txt(d.get('correoContacto', ''), 0, 120)
+        && txt(d.get('direccion', ''), 0, 150)
+        && d.emergencia is map
+        && d.emergencia.keys().hasOnly(['nombre', 'parentesco', 'telefono'])
+        && txt(d.emergencia.nombre, 2, 80) && txt(d.emergencia.parentesco, 2, 30) && txt(d.emergencia.telefono, 7, 20)
+        && txt(d.get('posicion', ''), 0, 30)
+        && (d.get('numeroCamiseta', null) == null
+            || (d.numeroCamiseta is int && d.numeroCamiseta >= 0 && d.numeroCamiseta <= 99))
+        && d.estado in ['Activo', 'Inactivo'];
+    }
+
+    match /jugadores/{jugadorId} {
+      // NUNCA "request.auth != null": Administrador (HU-007) y, desde HU-010,
+      // el Jugador ACTIVO solo SU propio expediente (userId guardado == su UID).
+      allow read: if isAdmin()
+        || (hasRole(['Jugador']) && resource.data.userId == request.auth.uid);
+
+      allow create: if isAdmin()
+        && validJugador(request.resource.data)
+        && request.resource.data.categoriaId == null                     // HU-008 lo asignará
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        // La cuenta existe, es Jugador, está Activa y NO tenía expediente…
+        && exists(userPath(request.resource.data.userId))
+        && get(userPath(request.resource.data.userId)).data.rol == 'Jugador'
+        && get(userPath(request.resource.data.userId)).data.estado == 'Activo'
+        && sinJugador(get(userPath(request.resource.data.userId)).data)
+        // …y en ESTA MISMA operación queda apuntando a este expediente.
+        && getAfter(userPath(request.resource.data.userId)).data.jugadorId == jugadorId
+        // Documento único: su clave se reserva en la misma operación.
+        && getAfter(jugClavePath(request.resource.data.documentoNormalizado)).data.jugadorId == jugadorId;
+
+      allow update: if isAdmin()
+        && validJugador(request.resource.data)
+        // Relaciones protegidas: userId y categoriaId no cambian desde Editar.
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.categoriaId == resource.data.categoriaId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        // Si cambia el documento: la clave nueva queda reservada para este
+        // expediente y la anterior se libera, en la misma operación.
+        && (request.resource.data.documentoNormalizado == resource.data.documentoNormalizado
+            || (getAfter(jugClavePath(request.resource.data.documentoNormalizado)).data.jugadorId == jugadorId
+                && !existsAfter(jugClavePath(resource.data.documentoNormalizado))))
+        // HU-009: si tiene categoría, su ficha deportiva se actualiza en la MISMA operación.
+        && (resource.data.categoriaId == null
+            || fichaCoincide(getAfter(fichaPath(resource.data.categoriaId, jugadorId)).data, request.resource.data));
+
+      // HU-008 — ASIGNAR / CAMBIAR CATEGORÍA (operación administrativa aparte).
+      // Solo Administrador; solo categoriaId + auditoría; solo hacia una categoría
+      // que EXISTE y está ACTIVA. userId, datos personales y createdAt/By no se tocan
+      // (changedKeys lo garantiza). Una categoría actual por jugador: es UN campo.
+      // No se permite volver a null (desvincular será una HU específica).
+      allow update: if isAdmin()
+        && changedKeys().hasOnly(['categoriaId', 'updatedAt', 'updatedBy'])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.categoriaId is string
+        && request.resource.data.categoriaId != resource.data.categoriaId
+        && exists(catPath(request.resource.data.categoriaId))
+        && get(catPath(request.resource.data.categoriaId)).data.estado == 'Activa'
+        // HU-009: traslado de la ficha en la misma operación (sale de la nómina anterior, entra a la nueva)
+        && fichaCoincide(getAfter(fichaPath(request.resource.data.categoriaId, jugadorId)).data, request.resource.data)
+        && (resource.data.categoriaId == null || !existsAfter(fichaPath(resource.data.categoriaId, jugadorId)));
+
+      // HU-009: el Entrenador NUNCA lee el expediente completo (las reglas no ocultan
+      // campos). Lee la ficha deportiva en categorias/{catId}/nomina (ver abajo).
+
+      // Sin eliminación: el expediente conserva historial (asistencia, pagos, lesiones…).
+      allow delete: if false;
+    }
+
+    match /jugadorClaves/{clave} {
+      allow read: if isAdmin();
+      // Reservar: solo si el expediente (después de la operación) tiene ESE documento.
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['tipo', 'jugadorId'])
+        && request.resource.data.tipo == 'documento'
+        && request.resource.data.jugadorId is string
+        && clave == 'doc:' + getAfter(jugadorPath(request.resource.data.jugadorId)).data.documentoNormalizado;
+      // Liberar: solo si su expediente ya NO tiene ese documento (cambio en Editar).
+      allow delete: if isAdmin()
+        && existsAfter(jugadorPath(resource.data.jugadorId))
+        && clave != 'doc:' + getAfter(jugadorPath(resource.data.jugadorId)).data.documentoNormalizado;
+      allow update: if false;
+    }
+
+    // HU-007 — FOTO del jugador (base64, sin Firebase Storage → $0).
+    // Documento aparte (jugadorFotos/{jugadorId}) para que el listado no descargue
+    // imágenes. Máx. ~280 KB de texto (imagen 256×256 comprimida en el navegador).
+    match /jugadorFotos/{jugadorId} {
+      // HU-009: también el Entrenador ACTIVO de la categoría ACTUAL del jugador (lectura por ID).
+      allow read: if isAdmin()
+        // HU-012: el Jugador ve SU propia foto en su tarjeta
+        || (hasRole(['Jugador']) && myProfile().get('jugadorId', null) == jugadorId)
+        || (hasRole(['Entrenador'])
+            && exists(jugadorPath(jugadorId))
+            && get(jugadorPath(jugadorId)).data.categoriaId is string
+            && get(catPath(get(jugadorPath(jugadorId)).data.categoriaId)).data.entrenadorId == request.auth.uid);
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['data', 'updatedAt', 'updatedBy'])
+        && request.resource.data.data is string
+        && request.resource.data.data.size() <= 300000
+        && request.resource.data.data.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$')
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && existsAfter(jugadorPath(jugadorId));
+      allow delete: if isAdmin();
+    }
+
+    // ==========================================================
+    // HU-009 — NÓMINA / FICHA DEPORTIVA del jugador para el Entrenador
+    //   categorias/{catId}/nomina/{jugadorId}: nombres, apellidos, tipo y número de
+    //   documento, fechaNacimiento, género, posición, camiseta, estado (lista blanca
+    //   aprobada por la dirección). NUNCA contacto, dirección, emergencia, observaciones.
+    // LEER: Administrador, o el Entrenador ACTIVO que es HOY el entrenador de esa
+    //   categoría (se lee de la ruta y de Firestore, nunca del cliente). Si cambia el
+    //   entrenador de la categoría o el jugador se traslada, el acceso cambia al instante.
+    // ESCRIBIR: solo Administrador y solo idéntica al expediente de la categoría actual.
+    // ==========================================================
+    match /categorias/{catId}/nomina/{jugadorId} {
+      allow read: if isAdmin()
+        || (hasRole(['Entrenador']) && get(catPath(catId)).data.entrenadorId == request.auth.uid);
+      allow create, update: if isAdmin()
+        && request.resource.data.updatedAt == request.time
+        && existsAfter(jugadorPath(jugadorId))
+        && getAfter(jugadorPath(jugadorId)).data.categoriaId == catId
+        && fichaCoincide(request.resource.data, getAfter(jugadorPath(jugadorId)).data);
+      allow delete: if isAdmin()
+        && (!existsAfter(jugadorPath(jugadorId)) || getAfter(jugadorPath(jugadorId)).data.categoriaId != catId);
+    }
+
+    // ==========================================================
+    // HU-010 — ENTRENAMIENTOS (sesiones programadas)
+    //   categorias/{catId}/entrenamientos/{fecha_HHMM}
+    // La sesión pertenece a UNA categoría (no se duplica por jugador).
+    // ID determinista fecha_horaInicio: dos envíos idénticos (doble clic, dos
+    // pestañas) chocan con el mismo documento → el segundo es update → DENEGADO.
+    // LEER: Administrador · Entrenador ACTUAL de la categoría · Jugador cuya
+    //   categoría ACTUAL es esta. Autoriza la RUTA (la consulta no necesita filtros).
+    // CREAR: solo el Entrenador ACTUAL de una categoría ACTIVA, a su nombre,
+    //   estado "Programada", fecha no pasada (hora Colombia, UTC-5), fin > inicio.
+    // Editar / cancelar / eliminar: no existen aún (HU posterior). HU-011 usará el ID.
+    // ==========================================================
+    function horaMin(h) {
+      return int(h.split(':')[0]) * 60 + int(h.split(':')[1]);
+    }
+    function fechaNum(f) {
+      return int(f.split('-')[0]) * 10000 + int(f.split('-')[1]) * 100 + int(f.split('-')[2]);
+    }
+    function ahoraCol() {
+      return request.time - duration.value(5, 'h');
+    }
+    function hoyNum() {
+      return ahoraCol().year() * 10000 + ahoraCol().month() * 100 + ahoraCol().day();
+    }
+    function noEsPasada(d) {
+      return fechaNum(d.fecha) > hoyNum()
+        || (fechaNum(d.fecha) == hoyNum()
+            && horaMin(d.horaInicio) >= ahoraCol().hours() * 60 + ahoraCol().minutes() - 5);   // 5 min de tolerancia de reloj
+    }
+    function validSesion(d, catId, sesId) {
+      return d.keys().hasOnly(['categoriaId', 'entrenadorId', 'fecha', 'horaInicio', 'horaFin', 'lugar', 'observaciones',
+                               'estado', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.keys().hasAll(['categoriaId', 'entrenadorId', 'fecha', 'horaInicio', 'horaFin', 'lugar', 'estado'])
+        && d.categoriaId == catId
+        && d.fecha is string && d.fecha.matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
+        && d.horaInicio is string && d.horaInicio.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+        && d.horaFin is string && d.horaFin.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+        && d.horaFin > d.horaInicio
+        && txt(d.lugar, 2, 80)
+        && txt(d.get('observaciones', ''), 0, 300)
+        && d.estado == 'Programada'
+        && sesId == d.fecha + '_' + d.horaInicio.replace(':', '');
+    }
+
+    match /categorias/{catId}/entrenamientos/{sesId} {
+      allow read: if isAdmin()
+        || (hasRole(['Entrenador']) && get(catPath(catId)).data.entrenadorId == request.auth.uid)
+        || esMiCategoria(catId);
+
+      allow create: if hasRole(['Entrenador'])
+        && exists(catPath(catId))
+        && get(catPath(catId)).data.entrenadorId == request.auth.uid
+        && get(catPath(catId)).data.estado == 'Activa'
+        && validSesion(request.resource.data, catId, sesId)
+        && request.resource.data.entrenadorId == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && noEsPasada(request.resource.data);
+
+      allow update, delete: if false;
+    }
+
+    // ==========================================================
+    // HU-011 — ASISTENCIA por sesión
+    //   categorias/{catId}/entrenamientos/{sesId}/asistencias/{jugadorId}
+    // ID = jugadorId → un registro por jugador y sesión (sin duplicados).
+    // LEER: Administrador (solo consulta) y el Entrenador ACTUAL de la categoría.
+    // CREAR: el Entrenador actual, dentro de la ventana (día de la sesión → +7 días,
+    //   hora Colombia), solo para un jugador que HOY está en la nómina ACTIVA de la
+    //   categoría (ficha real) y con una copia mínima idéntica a su ficha (histórico).
+    // CORREGIR: mismo entrenador y ventana; solo estado + auditoría; version + 1
+    //   (protege contra sobrescrituras simultáneas). Se conserva fechaCreacion/createdBy.
+    //   La corrección NO exige que el jugador siga en la categoría (historial).
+    // ELIMINAR: nunca. Jugador: ni lee ni escribe (consulta propia: HU posterior).
+    // ==========================================================
+    function sesPath(catId, sesId) {
+      return /databases/$(database)/documents/categorias/$(catId)/entrenamientos/$(sesId);
+    }
+    function esEntrenadorDe(catId) {
+      return hasRole(['Entrenador']) && get(catPath(catId)).data.entrenadorId == request.auth.uid;
+    }
+    function ventanaAsistencia(fecha) {
+      return fechaNum(fecha) <= hoyNum()
+        && ahoraCol() < timestamp.date(int(fecha.split('-')[0]), int(fecha.split('-')[1]), int(fecha.split('-')[2])) + duration.value(8, 'd');
+    }
+    function estadosAsistencia() {
+      return ['Asistió', 'Falta', 'Excusa', 'Atraso'];
+    }
+    function participanteCoincide(p, f) {
+      return p is map && p.keys().hasOnly(['nombres', 'apellidos', 'numeroCamiseta', 'posicion'])
+        && f.estado == 'Activo'
+        && p.nombres == f.nombres && p.apellidos == f.apellidos
+        && p.get('numeroCamiseta', null) == f.get('numeroCamiseta', null)
+        && p.get('posicion', '') == f.get('posicion', '');
+    }
+
+    function sesionCoincide(x, s, c) {
+      return x is map && x.keys().hasOnly(['fecha', 'horaInicio', 'horaFin', 'lugar', 'categoriaNombre'])
+        && x.fecha == s.fecha && x.horaInicio == s.horaInicio && x.horaFin == s.horaFin
+        && x.lugar == s.lugar && x.categoriaNombre == c.nombre;
+    }
+
+    match /categorias/{catId}/entrenamientos/{sesId}/asistencias/{jugadorId} {
+      allow read: if isAdmin() || esEntrenadorDe(catId);
+
+      allow create: if esEntrenadorDe(catId)
+        && exists(sesPath(catId, sesId))
+        && ventanaAsistencia(get(sesPath(catId, sesId)).data.fecha)
+        && request.resource.data.keys().hasOnly(['sesionId', 'jugadorId', 'categoriaId', 'estadoAsistencia', 'participante', 'sesion', 'version',
+                                                'fechaCreacion', 'fechaActualizacion', 'createdBy', 'updatedBy'])
+        // HU-012: copia inmutable de la sesión (fecha, horario, lugar y nombre de la categoría de ESE día)
+        && sesionCoincide(request.resource.data.sesion, get(sesPath(catId, sesId)).data, get(catPath(catId)).data)
+        && request.resource.data.sesionId == sesId
+        && request.resource.data.jugadorId == jugadorId
+        && request.resource.data.categoriaId == catId
+        && request.resource.data.estadoAsistencia in estadosAsistencia()
+        && request.resource.data.version == 1
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.fechaCreacion == request.time
+        && request.resource.data.fechaActualizacion == request.time
+        && participanteCoincide(request.resource.data.participante, get(fichaPath(catId, jugadorId)).data);
+
+      allow update: if esEntrenadorDe(catId)
+        && ventanaAsistencia(get(sesPath(catId, sesId)).data.fecha)
+        && changedKeys().hasOnly(['estadoAsistencia', 'version', 'fechaActualizacion', 'updatedBy'])
+        && request.resource.data.estadoAsistencia in estadosAsistencia()
+        && request.resource.data.version == resource.data.version + 1
+        && request.resource.data.fechaActualizacion == request.time
+        && request.resource.data.updatedBy == request.auth.uid;
+
+      allow delete: if false;
+    }
+
+    // ==========================================================
+    // HU-012 — HISTORIAL DE ASISTENCIA (consulta, solo lectura)
+    // Jugador: SU historial completo con UNA consulta collectionGroup
+    //   collectionGroup('asistencias').where('jugadorId', '==', <su jugadorId>)
+    //   La regla compara con users/{uid}.jugadorId (guardado; no viene del cliente),
+    //   así una consulta por otro jugador es rechazada completa.
+    //   Funciona aunque haya cambiado de categoría: no depende de la categoría actual.
+    // Administrador: lectura (permisos administrativos).
+    // Entrenador: NO usa esta regla; lee por la ruta de SUS categorías (regla HU-011),
+    //   es decir, solo las sesiones de las categorías que dirige.
+    // Escrituras: nunca por aquí.
+    // ==========================================================
+    match /{path=**}/asistencias/{asisId} {
+      allow read: if isAdmin()
+        || (hasRole(['Jugador'])
+            && myProfile().get('jugadorId', null) is string
+            && resource.data.jugadorId == myProfile().jugadorId);
+    }
+
+    // ==========================================================
+    // HU-013 — PARTIDOS, RENDIMIENTO Y ALINEACIÓN (independiente de entrenamientos)
+    //   categorias/{cat}/partidos/{pid}                        (+ participantes, rendimientos, alineaciones)
+    // Autoriza la RUTA: Administrador lee; el Entrenador ACTUAL de la categoría gestiona.
+    // Jugador (HU-014): solo lectura de los partidos en los que fue convocado (convocadoEn). Nunca se elimina un partido ni un rendimiento.
+    // ==========================================================
+    function partidoPath(catId, pid) {
+      return /databases/$(database)/documents/categorias/$(catId)/partidos/$(pid);
+    }
+    function partPath(catId, pid, jid) {
+      return /databases/$(database)/documents/categorias/$(catId)/partidos/$(pid)/participantes/$(jid);
+    }
+    function rendPath(catId, pid, jid) {
+      return /databases/$(database)/documents/categorias/$(catId)/partidos/$(pid)/rendimientos/$(jid);
+    }
+    function alinPath(catId, pid) {
+      return /databases/$(database)/documents/categorias/$(catId)/partidos/$(pid)/alineaciones/principal;
+    }
+    // HU-014: el Jugador consulta (solo lectura) los partidos en los que FUE CONVOCADO.
+    //   La identidad sale de users/{uid}.jugadorId (guardado), nunca del cliente.
+    //   Decisión de la escuela: dentro de esos partidos ve la convocatoria, la alineación
+    //   y las estadísticas de TODOS sus compañeros (no sus fotos ni expedientes).
+    function convocadoEn(catId, pid) {
+      return hasRole(['Jugador'])
+        && myProfile().get('jugadorId', null) is string
+        && exists(partPath(catId, pid, myProfile().jugadorId));
+    }
+    function auditCreate(d) {
+      return d.version == 1 && d.createdBy == request.auth.uid && d.updatedBy == request.auth.uid
+        && d.createdAt == request.time && d.updatedAt == request.time;
+    }
+    function auditUpdate(d, r) {
+      return d.version == r.version + 1 && d.updatedBy == request.auth.uid && d.updatedAt == request.time;
+    }
+    function fechaOk(f) {
+      return f is string && f.matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+    }
+    function validPartido(d, catId) {
+      return d.keys().hasOnly(['categoriaId', 'entrenadorId', 'rival', 'fecha', 'hora', 'lugar', 'tipo', 'estado', 'formatoPartido',
+                               'observaciones', 'conRendimiento', 'version', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.categoriaId == catId
+        && txt(d.rival, 2, 60)
+        && fechaOk(d.fecha)
+        && d.hora is string && d.hora.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+        && txt(d.get('lugar', ''), 0, 80)
+        && d.tipo in ['Amistoso', 'Liga', 'Torneo', 'Otro']
+        && d.estado in ['Programado', 'Disputado', 'Cancelado']
+        && d.formatoPartido in ['F5', 'F7', 'F9', 'F11']
+        && txt(d.get('observaciones', ''), 0, 300)
+        && d.conRendimiento is bool
+        // "Disputado" solo con fecha de hoy o anterior (hora Colombia)
+        && (d.estado != 'Disputado' || fechaNum(d.fecha) <= hoyNum());
+    }
+    // Ventana de rendimiento: del día del partido a 30 días después (hora Colombia)
+    function ventanaPartido(fecha) {
+      return fechaNum(fecha) <= hoyNum()
+        && ahoraCol() < timestamp.date(int(fecha.split('-')[0]), int(fecha.split('-')[1]), int(fecha.split('-')[2])) + duration.value(31, 'd');
+    }
+    function entero(v, max) {
+      return v is int && v >= 0 && v <= max;
+    }
+    function validNums(d) {
+      return entero(d.goles, 30) && entero(d.asistencias, 30) && entero(d.minutosJugados, 150)
+        && entero(d.tarjetasAmarillas, 2) && entero(d.tarjetasRojas, 1)
+        && (d.valoracionFinal == null
+            || (d.valoracionFinal is number && d.valoracionFinal >= 1 && d.valoracionFinal <= 10
+                && math.abs(d.valoracionFinal * 10 - math.round(d.valoracionFinal * 10)) < 0.000001));
+    }
+    // Alineación (HU-013, corregida): titulares empaquetados en s1…sN y lista "jugadores" en el MISMO orden.
+    //   · unicidad: jugadores.toSet().size() == jugadores.size()  (1 operación, no 55 comparaciones)
+    //   · máximo por formato: jugadores.size() <= cupo(formato)
+    //   · cada puesto i: ocupado ⇔ i < jugadores.size(), con el MISMO jugadorId y x, y ∈ [0, 1]
+    //   (un valor no numérico en x/y hace fallar la comparación → se deniega)
+    function cupo(f) {
+      return {'F5': 5, 'F7': 7, 'F9': 9, 'F11': 11}.get(f, 0);
+    }
+    function puesto(s, ids, i) {
+      return (i < ids.size()
+              && s.keys().hasOnly(['jugadorId', 'x', 'y', 'posicionTactica'])
+              && s.jugadorId == ids[i]
+              && s.x >= 0 && s.x <= 1 && s.y >= 0 && s.y <= 1
+              && s.posicionTactica in ['Portero', 'Defensa', 'Mediocampista', 'Delantero'])
+        || (i >= ids.size() && s == null);
+    }
+    function alineacionOk(d) {
+      return d.jugadores is list && d.jugadores.size() <= cupo(d.formatoPartido)
+        && d.jugadores.toSet().size() == d.jugadores.size()
+        && d.titulares.keys().hasOnly(['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11'])
+        && d.titulares.size() == 11
+        && puesto(d.titulares.s1, d.jugadores, 0)
+        && puesto(d.titulares.s2, d.jugadores, 1)
+        && puesto(d.titulares.s3, d.jugadores, 2)
+        && puesto(d.titulares.s4, d.jugadores, 3)
+        && puesto(d.titulares.s5, d.jugadores, 4)
+        && puesto(d.titulares.s6, d.jugadores, 5)
+        && puesto(d.titulares.s7, d.jugadores, 6)
+        && puesto(d.titulares.s8, d.jugadores, 7)
+        && puesto(d.titulares.s9, d.jugadores, 8)
+        && puesto(d.titulares.s10, d.jugadores, 9)
+        && puesto(d.titulares.s11, d.jugadores, 10)
+        // "Completa" solo con todos los titulares del formato; si no, "Borrador"
+        && d.estado in ['Borrador', 'Completa']
+        && ((d.estado == 'Completa') == (d.jugadores.size() == cupo(d.formatoPartido)));
+    }
+
+    match /categorias/{catId}/partidos/{pid} {
+      allow read: if isAdmin() || esEntrenadorDe(catId) || convocadoEn(catId, pid);
+
+      allow create: if esEntrenadorDe(catId)
+        && get(catPath(catId)).data.estado == 'Activa'
+        && validPartido(request.resource.data, catId)
+        && request.resource.data.entrenadorId == request.auth.uid
+        && request.resource.data.conRendimiento == false
+        && auditCreate(request.resource.data);
+
+      // Editar el partido (formulario)
+      allow update: if esEntrenadorDe(catId)
+        && validPartido(request.resource.data, catId)
+        && changedKeys().hasOnly(['rival', 'fecha', 'hora', 'lugar', 'tipo', 'estado', 'formatoPartido', 'observaciones',
+                                  'version', 'updatedAt', 'updatedBy'])
+        && auditUpdate(request.resource.data, resource.data)
+        // con estadísticas registradas, el partido sigue "Disputado" (no se ocultan ni borran datos)
+        && (resource.data.conRendimiento != true || request.resource.data.estado == 'Disputado')
+        // el formato no puede quedar con menos puestos que titulares ya ubicados
+        && (!exists(alinPath(catId, pid)) || get(alinPath(catId, pid)).data.get('jugadores', []).size() <= cupo(request.resource.data.formatoPartido));
+
+      // Marca "tiene rendimiento" (solo en la misma operación que el primer rendimiento)
+      allow update: if esEntrenadorDe(catId)
+        && changedKeys().hasOnly(['conRendimiento'])
+        && request.resource.data.conRendimiento == true
+        && resource.data.estado == 'Disputado';
+
+      allow delete: if false;
+    }
+
+    match /categorias/{catId}/partidos/{pid}/participantes/{jid} {
+      allow read: if isAdmin() || esEntrenadorDe(catId) || convocadoEn(catId, pid);
+
+      // Convocar: jugador ACTIVO de la nómina actual, copia idéntica a su ficha
+      allow create: if esEntrenadorDe(catId)
+        && exists(partidoPath(catId, pid))
+        && request.resource.data.keys().hasOnly(['jugadorId', 'categoriaId', 'rolConvocatoria', 'participo', 'participante',
+                                                'version', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.jugadorId == jid
+        && request.resource.data.categoriaId == catId
+        && request.resource.data.rolConvocatoria in ['Titular', 'Suplente']
+        && request.resource.data.participo == false
+        && participanteCoincide(request.resource.data.participante, get(fichaPath(catId, jid)).data)
+        && auditCreate(request.resource.data);
+
+      // Rol (lo fija la alineación)
+      allow update: if esEntrenadorDe(catId)
+        && changedKeys().hasOnly(['rolConvocatoria', 'version', 'updatedAt', 'updatedBy'])
+        && request.resource.data.rolConvocatoria in ['Titular', 'Suplente']
+        && auditUpdate(request.resource.data, resource.data);
+
+      // Participó = tiene minutos (> 0) en su rendimiento de la MISMA operación
+      allow update: if esEntrenadorDe(catId)
+        && changedKeys().hasOnly(['participo', 'version', 'updatedAt', 'updatedBy'])
+        && existsAfter(rendPath(catId, pid, jid))
+        && request.resource.data.participo == (getAfter(rendPath(catId, pid, jid)).data.minutosJugados > 0)
+        && auditUpdate(request.resource.data, resource.data);
+
+      // Quitar de la convocatoria: solo si no tiene rendimiento (nunca se borran estadísticas)
+      allow delete: if esEntrenadorDe(catId)
+        && !exists(rendPath(catId, pid, jid));
+    }
+
+    match /categorias/{catId}/partidos/{pid}/rendimientos/{jid} {
+      allow read: if isAdmin() || esEntrenadorDe(catId) || convocadoEn(catId, pid);
+
+      allow create: if esEntrenadorDe(catId)
+        && get(partidoPath(catId, pid)).data.estado == 'Disputado'
+        && ventanaPartido(get(partidoPath(catId, pid)).data.fecha)
+        && exists(partPath(catId, pid, jid))
+        && request.resource.data.keys().hasOnly(['partidoId', 'jugadorId', 'categoriaId', 'goles', 'asistencias', 'minutosJugados',
+                                                'tarjetasAmarillas', 'tarjetasRojas', 'valoracionFinal', 'participante', 'partido',
+                                                'version', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.partidoId == pid
+        && request.resource.data.jugadorId == jid
+        && request.resource.data.categoriaId == catId
+        && validNums(request.resource.data)
+        && request.resource.data.participante == get(partPath(catId, pid, jid)).data.participante
+        && request.resource.data.partido.keys().hasOnly(['fecha', 'rival', 'tipo', 'categoriaNombre'])
+        && request.resource.data.partido.fecha == get(partidoPath(catId, pid)).data.fecha
+        && request.resource.data.partido.rival == get(partidoPath(catId, pid)).data.rival
+        && request.resource.data.partido.tipo == get(partidoPath(catId, pid)).data.tipo
+        && request.resource.data.partido.categoriaNombre == get(catPath(catId)).data.nombre
+        && getAfter(partidoPath(catId, pid)).data.conRendimiento == true
+        && getAfter(partPath(catId, pid, jid)).data.participo == (request.resource.data.minutosJugados > 0)
+        && auditCreate(request.resource.data);
+
+      allow update: if esEntrenadorDe(catId)
+        && get(partidoPath(catId, pid)).data.estado == 'Disputado'
+        && ventanaPartido(get(partidoPath(catId, pid)).data.fecha)
+        && changedKeys().hasOnly(['goles', 'asistencias', 'minutosJugados', 'tarjetasAmarillas', 'tarjetasRojas', 'valoracionFinal',
+                                  'version', 'updatedAt', 'updatedBy'])
+        && validNums(request.resource.data)
+        && getAfter(partPath(catId, pid, jid)).data.participo == (request.resource.data.minutosJugados > 0)
+        && auditUpdate(request.resource.data, resource.data);
+
+      allow delete: if false;
+    }
+
+    match /categorias/{catId}/partidos/{pid}/alineaciones/{alId} {
+      allow read: if isAdmin() || esEntrenadorDe(catId) || convocadoEn(catId, pid);
+
+      allow create, update: if esEntrenadorDe(catId)
+        && alId == 'principal'
+        && exists(partidoPath(catId, pid))
+        && request.resource.data.keys().hasOnly(['partidoId', 'categoriaId', 'formatoPartido', 'titulares', 'jugadores', 'estado',
+                                                'version', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.partidoId == pid
+        && request.resource.data.categoriaId == catId
+        && request.resource.data.formatoPartido == get(partidoPath(catId, pid)).data.formatoPartido
+        && alineacionOk(request.resource.data)
+        && ((resource == null && auditCreate(request.resource.data))
+            || (resource != null
+                && request.resource.data.createdAt == resource.data.createdAt
+                && request.resource.data.createdBy == resource.data.createdBy
+                && auditUpdate(request.resource.data, resource.data)));
+
+      allow delete: if false;
+    }
+
+    // ==========================================================
+    // HU-014 — MI RENDIMIENTO (consulta del Jugador, solo lectura)
+    //   collectionGroup('rendimientos').where('jugadorId', '==', <su jugadorId>)
+    //   La regla compara con users/{uid}.jugadorId: una consulta por otro jugador se rechaza completa.
+    //   No depende de la categoría actual → el historial sobrevive a los traslados.
+    //   Requiere el índice de firestore.indexes.json (rendimientos · jugadorId · grupo de colecciones).
+    // ==========================================================
+    match /{path=**}/rendimientos/{rendId} {
+      allow read: if isAdmin()
+        || (hasRole(['Jugador'])
+            && myProfile().get('jugadorId', null) is string
+            && resource.data.jugadorId == myProfile().jugadorId);
+    }
+
+    // ---------- Módulos futuros ----------
+    // rendimiento, mensualidades,
+    // implementos, prestamos, lesiones: cada HU agregará su regla siguiendo
+    // el principio de aislamiento. Mientras tanto, la regla final las niega.
+
+    // ---------- Todo lo demás: denegado ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

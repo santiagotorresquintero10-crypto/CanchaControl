@@ -1,0 +1,79 @@
+/* ==========================================================
+   CanchaControl — Design tokens
+   Cambia aquí los colores de marca; el resto del CSS los usa.
+   ========================================================== */
+:root {
+  /* Marca */
+  --cc-green-50:  #eef7f1;   /* tarjetas de confianza */
+  --cc-green-100: #d7efe0;
+  --cc-green-300: #5fd38d;   /* "Control" sobre la foto */
+  --cc-green-500: #1f8a4c;   /* Verde CanchaControl (botón) */
+  --cc-green-600: #19773f;   /* hover */
+  --cc-green-700: #146434;   /* active */
+  --cc-green-900: #0b3b20;
+
+  /* Neutros */
+  --cc-ink:        #111827;
+  --cc-ink-2:      #1f2937;
+  --cc-muted:      #6b7280;
+  --cc-muted-2:    #4b5563;
+  --cc-line:       #e5e7eb;
+  --cc-line-2:     #d9dee5;
+  --cc-surface:    #ffffff;
+  --cc-surface-2:  #f8fafc;
+  --cc-page:       #e3eaee;  /* fondo detrás de la tarjeta */
+
+  /* Estados */
+  --cc-danger:     #dc2626;
+  --cc-danger-bg:  #fef2f2;
+  --cc-warning:    #b45309;
+  --cc-warning-bg: #fffbeb;
+  --cc-success:    #15803d;
+  --cc-success-bg: #f0fdf4;
+  --cc-info:       #1d4ed8;
+
+  /* Tipografía */
+  --cc-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Forma */
+  --cc-radius-sm: 8px;
+  --cc-radius:    10px;
+  --cc-radius-lg: 22px;
+  --cc-shadow-sm: 0 1px 2px rgba(15, 23, 42, .06);
+  --cc-shadow:    0 10px 30px -12px rgba(15, 23, 42, .25);
+  --cc-shadow-lg: 0 30px 70px -30px rgba(15, 23, 42, .45);
+  --cc-ring:      0 0 0 4px rgba(31, 138, 76, .18);
+
+  /* Movimiento (discreto) */
+  --cc-ease: cubic-bezier(.2, .7, .2, 1);
+  --cc-fast: 140ms;
+  --cc-med:  220ms;
+
+  /* Alias semánticos del sistema de diseño (HU-010): usar estos en código nuevo */
+  --cc-primary:        var(--cc-green-500);
+  --cc-primary-hover:  var(--cc-green-600);
+  --cc-primary-soft:   #eaf6ee;
+  --cc-sidebar:        #0c1611;
+  --cc-background:     #f3f5f7;
+  --cc-text:           var(--cc-ink);
+  --cc-text-2:         var(--cc-muted);
+  --cc-border:         var(--cc-line);
+  --cc-card-radius:    16px;
+  --cc-shadow-card:    0 1px 2px rgba(15, 23, 42, .05), 0 4px 14px -8px rgba(15, 23, 42, .12);
+  --cc-shadow-hover:   0 2px 4px rgba(15, 23, 42, .06), 0 12px 28px -14px rgba(15, 23, 42, .28);
+  /* Espaciado (escala 4px) */
+  --cc-space-1: 4px;  --cc-space-2: 8px;  --cc-space-3: 12px; --cc-space-4: 16px;
+  --cc-space-5: 20px; --cc-space-6: 24px; --cc-space-8: 32px; --cc-space-10: 40px;
+  /* Series de gráficos (categórica validada: CVD y contraste OK) */
+  --cc-series-1: #2563eb;   /* Administradores */
+  --cc-series-2: #1f8a4c;   /* Entrenadores */
+  --cc-series-3: #7c3aed;   /* Jugadores */
+
+  /* Layout */
+  --cc-form-max: 400px;
+  --cc-input-h:  50px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --cc-fast: 0ms; --cc-med: 0ms; }
+}
